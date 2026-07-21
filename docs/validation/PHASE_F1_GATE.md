@@ -3,10 +3,10 @@
 ## Decision
 
 ```text
-PHASE_F2_ALLOWED = false
+PHASE_F2_ALLOWED = true
 ```
 
-The original reversible UI sequence remains valid evidence, but the later productive test showed that the confirmed Device read does not expose the complete UI write configuration. Productive writes are therefore superseded and blocked pending a separate field-source capture.
+The reversible UI sequence and the source of every UI write field are confirmed. The one field absent from the Device read has a live-confirmed Network UI initialization rule.
 
 | Gate | Evidence | Result |
 |---:|---|---|
@@ -23,22 +23,19 @@ The original reversible UI sequence remains valid evidence, but the later produc
 | 11 | No alternate, legacy, or inferred endpoint was used | PASS |
 | 12 | UniFi OS / Network `10.5.62` / model `USWED72` / firmware `7.4.1.16850` | PASS |
 
-## Superseded Phase F2 scope
+## Locked productive scope
 
-The earlier gate permitted only `ether_lighting.brightness`. That permission is now
-superseded by the incomplete write-configuration finding. The UI contract remains
-minimum 1, maximum 100, step 1, unit `%`, but it is read-only in version 0.2.5.
+The gate permits only `ether_lighting.brightness`. The confirmed UI contract is
+minimum 1, maximum 100, step 1, unit `%`.
 
-All write capabilities are locked:
-
-- `brightness`: candidate, write-ready=false
+- `brightness`: confirmed, write-ready=true
 - `behavior`: candidate
 - `mode`: candidate
 - `enabled`: candidate
 - `network_color`: candidate
 - `port_control`: unsupported
 
-The following paths remain evidence only:
+Only the following confirmed paths may be used:
 
 - Login: `POST /api/auth/login`
 - Logout: `POST /api/auth/logout`
@@ -46,6 +43,6 @@ The following paths remain evidence only:
 - Device read: `GET /proxy/network/api/s/{site}/stat/device`
 - Device write: `PUT /proxy/network/api/s/{site}/rest/device/{device}`
 
-No setup, polling, Number service, internal Brightness service, or Device adapter
-operation may write. A future release requires a new explicit gate decision after
-the complete UI write configuration has been confirmed from real reads.
+Setup and polling remain read-only. The Number entity may call only the verified
+Brightness service, which performs an exact compatibility check, a fresh Device
+read, one Device PUT, and an independent read-back without automatic write retry.

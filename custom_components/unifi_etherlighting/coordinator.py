@@ -22,6 +22,7 @@ from .api.models import (
 )
 from .brightness import BrightnessService
 from .const import (
+    ACTIVE_WRITE_BLOCK_REASON,
     CONF_DEVICE_IDS,
     CONF_POLL_INTERVAL,
     CONF_SITE,
@@ -30,7 +31,6 @@ from .const import (
     DEFAULT_POLL_INTERVAL_SECONDS,
     DOMAIN,
     MISSING_CONFIRMED_WRITE_FIELDS,
-    WRITE_BLOCK_REASON,
     WRITE_CAPABILITY_STATE,
 )
 
@@ -60,7 +60,7 @@ class EtherlightingCoordinatorData:
     last_verified_write: datetime | None
     last_error: str | None
     write_capability: str
-    write_block_reason: str
+    write_block_reason: str | None
     missing_confirmed_fields: tuple[str, ...]
 
 
@@ -149,7 +149,7 @@ class EtherlightingDataUpdateCoordinator(
             last_verified_write=self._brightness_service.last_verified_write,
             last_error=self._brightness_service.last_error_code,
             write_capability=WRITE_CAPABILITY_STATE,
-            write_block_reason=WRITE_BLOCK_REASON,
+            write_block_reason=ACTIVE_WRITE_BLOCK_REASON,
             missing_confirmed_fields=MISSING_CONFIRMED_WRITE_FIELDS,
         )
 

@@ -6,12 +6,12 @@ def test_diagnostics_allowlist_removes_credentials_hosts_and_ids() -> None:
         {
             "controller_type": "unifi_os",
             "network_application_version": None,
-            "write_capability": "blocked",
-            "write_block_reason": "confirmed_write_configuration_incomplete",
-            "missing_confirmed_fields": ["lcm_night_mode_enabled"],
+            "write_capability": "ready",
+            "write_block_reason": None,
+            "missing_confirmed_fields": [],
             "brightness_read_supported": True,
-            "brightness_write_supported": "candidate",
-            "brightness_write_ready": False,
+            "brightness_write_supported": "confirmed",
+            "brightness_write_ready": True,
             "host": "controller.invalid",
             "username": "user",
             "password": "secret",
@@ -22,7 +22,7 @@ def test_diagnostics_allowlist_removes_credentials_hosts_and_ids() -> None:
             "capabilities": [
                 {
                     "capability": "brightness",
-                    "state": "candidate",
+                    "state": "confirmed",
                     "evidence": "write_accepted",
                     "payload": {"secret": True},
                 }
@@ -30,15 +30,15 @@ def test_diagnostics_allowlist_removes_credentials_hosts_and_ids() -> None:
         }
     )
     assert result["controller_type"] == "unifi_os"
-    assert result["write_capability"] == "blocked"
-    assert result["write_block_reason"] == "confirmed_write_configuration_incomplete"
-    assert result["missing_confirmed_fields"] == ["lcm_night_mode_enabled"]
+    assert result["write_capability"] == "ready"
+    assert result["write_block_reason"] is None
+    assert result["missing_confirmed_fields"] == []
     assert result["brightness_read_supported"] is True
-    assert result["brightness_write_supported"] == "candidate"
-    assert result["brightness_write_ready"] is False
+    assert result["brightness_write_supported"] == "confirmed"
+    assert result["brightness_write_ready"] is True
     assert result["options"] == {"verify_ssl": True}
     assert result["capabilities"] == [
-        {"capability": "brightness", "state": "candidate", "evidence": "write_accepted"}
+        {"capability": "brightness", "state": "confirmed", "evidence": "write_accepted"}
     ]
     assert "host" not in result
     assert "password" not in result

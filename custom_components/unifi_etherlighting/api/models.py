@@ -172,14 +172,14 @@ def current_capture_capabilities() -> tuple[CapabilityEvidence, ...]:
         ),
         CapabilityEvidence(
             "brightness",
-            CapabilityState.CANDIDATE,
+            CapabilityState.CONFIRMED,
             EvidenceLevel.REVERSIBLE,
             CURRENT_COMPATIBILITY,
             "ether_lighting.brightness",
             (30, 31),
             (
-                "UI write and reversal are evidenced, but the complete write "
-                "configuration is not independently readable.",
+                "UI write, read-back, reversal, and the UI's missing-field "
+                "initialization behavior are live-confirmed.",
             ),
         ),
         CapabilityEvidence(
@@ -270,9 +270,13 @@ def brightness_capability_status(
     return BrightnessCapabilityStatus(
         read_supported=read_supported,
         write_supported=(
-            CapabilityState.CANDIDATE
-            if read_supported
-            else CapabilityState.UNSUPPORTED
+            CapabilityState.UNSUPPORTED
+            if not read_supported
+            else (
+                CapabilityState.CONFIRMED
+                if WRITE_CAPABILITY_ENABLED
+                else CapabilityState.CANDIDATE
+            )
         ),
         write_ready=read_supported and WRITE_CAPABILITY_ENABLED,
     )

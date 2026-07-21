@@ -16,7 +16,7 @@
       },
       "devices": {
         "title": "Etherlighting-Switches auswählen",
-        "description": "Nur Switches mit exakt bestätigter Lesestruktur stehen zur Auswahl. Brightness-Schreibzugriffe sind derzeit gesperrt.",
+        "description": "Nur Switches mit exakt bestätigter Lese-, Schreib-, Modell-, Firmware- und Network-Struktur stehen zur Auswahl.",
         "data": {
           "device_ids": "Kompatible Switches"
         }
@@ -63,7 +63,7 @@
   "entity": {
     "number": {
       "etherlighting_brightness": {
-        "name": "Etherlighting-Helligkeit (Schreiben gesperrt)"
+        "name": "Etherlighting-Helligkeit"
       }
     },
     "sensor": {
@@ -74,7 +74,7 @@
         "name": "Network-Application-Version"
       },
       "brightness_write_capability": {
-        "name": "Brightness-Schreibfähigkeit"
+        "name": "Brightness-Schreibbereitschaft"
       },
       "confirmed_capabilities": {
         "name": "Bestätigte Fähigkeiten"

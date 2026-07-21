@@ -16,7 +16,7 @@
       },
       "devices": {
         "title": "Select Etherlighting switches",
-        "description": "Only switches with the exactly validated read schema are available. Brightness writes are currently blocked.",
+        "description": "Only switches matching the exactly validated read, write, model, firmware, and Network schema are available.",
         "data": {
           "device_ids": "Compatible switches"
         }
@@ -63,7 +63,7 @@
   "entity": {
     "number": {
       "etherlighting_brightness": {
-        "name": "Etherlighting brightness (writes blocked)"
+        "name": "Etherlighting brightness"
       }
     },
     "sensor": {
@@ -74,7 +74,7 @@
         "name": "Network Application version"
       },
       "brightness_write_capability": {
-        "name": "Brightness write capability"
+        "name": "Brightness write readiness"
       },
       "confirmed_capabilities": {
         "name": "Confirmed capabilities"

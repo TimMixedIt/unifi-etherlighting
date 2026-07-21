@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import RuntimeData
 from .brightness import BrightnessWriteOutcome
 from .const import (
+    ACTIVE_WRITE_BLOCK_REASON,
     BRIGHTNESS_MAXIMUM,
     BRIGHTNESS_MINIMUM,
     BRIGHTNESS_STEP,
@@ -20,7 +21,6 @@ from .const import (
     CONF_SITE,
     DOMAIN,
     MISSING_CONFIRMED_WRITE_FIELDS,
-    WRITE_BLOCK_REASON,
     WRITE_CAPABILITY_ENABLED,
     WRITE_CAPABILITY_STATE,
     WRITE_DISABLED_MESSAGE,
@@ -87,7 +87,7 @@ class EtherlightingBrightnessNumber(CoordinatorEntity, NumberEntity):
                 device and device.brightness_write_ready
             ),
             "write_capability": WRITE_CAPABILITY_STATE,
-            "write_block_reason": WRITE_BLOCK_REASON,
+            "write_block_reason": ACTIVE_WRITE_BLOCK_REASON,
             "missing_confirmed_fields": list(MISSING_CONFIRMED_WRITE_FIELDS),
         }
 

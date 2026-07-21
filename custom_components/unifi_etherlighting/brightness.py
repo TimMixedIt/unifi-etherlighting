@@ -47,7 +47,6 @@ _TOP_LEVEL_FIELDS = (
     "lcm_brightness",
     "lcm_brightness_override",
     "lcm_night_mode_begins",
-    "lcm_night_mode_enabled",
     "lcm_night_mode_ends",
     "lcm_orientation_override",
     "mgmt_network_id",
@@ -56,6 +55,8 @@ _TOP_LEVEL_FIELDS = (
     "snmp_location",
     "stp_priority",
 )
+# Live-confirmed Network UI form initialization; see the sanitized source capture.
+_UI_DEFAULTED_TOP_LEVEL_FIELDS = {"lcm_night_mode_enabled": False}
 _STABLE_READ_FIELDS = (
     "type",
     "model",
@@ -115,6 +116,13 @@ def build_brightness_write_payload(
     payload = _project_required_fields(
         current_device, _TOP_LEVEL_FIELDS, "top-level write"
     )
+    for field, ui_default in _UI_DEFAULTED_TOP_LEVEL_FIELDS.items():
+        value = current_device[field] if field in current_device else ui_default
+        if not isinstance(value, bool):
+            raise VerificationError(
+                "Current Device UI-defaulted write field is not a boolean"
+            )
+        payload[field] = value
     payload["config_network"] = _project_required_fields(
         config_network, _CONFIG_NETWORK_FIELDS, "config_network"
     )

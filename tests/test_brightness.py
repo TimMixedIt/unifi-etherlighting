@@ -134,22 +134,33 @@ def test_payload_builder_rejects_missing_fields_paths_and_limits() -> None:
             )
 
 
-def test_live_read_shape_cannot_build_complete_write_payload() -> None:
-    with pytest.raises(VerificationError) as caught:
-        build_brightness_write_payload(device(), 31)
-    assert "top-level write fields" in str(caught.value)
-    assert "lcm_night_mode_enabled" not in str(caught.value)
+def test_live_read_uses_confirmed_ui_default_for_missing_night_mode() -> None:
+    payload = build_brightness_write_payload(device(), 31)
+    assert payload["lcm_night_mode_enabled"] is False
+
+
+def test_present_night_mode_value_is_preserved_and_validated() -> None:
+    current = complete_write_source()
+    current["lcm_night_mode_enabled"] = True
+    assert build_brightness_write_payload(current, 31)[
+        "lcm_night_mode_enabled"
+    ] is True
+
+    current["lcm_night_mode_enabled"] = None
+    with pytest.raises(VerificationError):
+        build_brightness_write_payload(current, 31)
 
 
 def test_successful_write_is_sent_once_and_read_back(monkeypatch) -> None:
     monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
-    devices = FakeDevices([complete_write_source(30), complete_write_source(31)])
+    devices = FakeDevices([device(30), device(31)])
     service = BrightnessService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
     result = asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
     assert result.outcome is BrightnessWriteOutcome.APPLIED
     assert result.observed == 31
     assert len(devices.writes) == 1
     assert devices.writes[0]["ether_lighting"]["brightness"] == 31
+    assert devices.writes[0]["lcm_night_mode_enabled"] is False
     assert service.last_verified_write is not None
 
 
@@ -207,6 +218,7 @@ def test_unchanged_state_is_not_applied_and_mixed_state_blocks_writes(
 async def test_central_write_gate_stops_before_every_network_operation(
     monkeypatch,
 ) -> None:
+    monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", False)
     auth = AsyncMock()
     controller = AsyncMock()
     devices = AsyncMock()

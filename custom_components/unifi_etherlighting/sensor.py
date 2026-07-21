@@ -101,16 +101,18 @@ class EtherlightingWriteCapabilitySensor(EtherlightingDiagnosticEntity, SensorEn
     @property
     def extra_state_attributes(self) -> dict[str, object]:
         devices = self.coordinator.data.devices
+        write_states = {
+            device.brightness_write_supported.value for device in devices
+        }
         return {
             "brightness_read_supported": any(
                 device.brightness_read_supported for device in devices
             ),
             "brightness_write_supported": (
-                "candidate"
-                if any(
-                    device.brightness_write_supported.value == "candidate"
-                    for device in devices
-                )
+                "confirmed"
+                if "confirmed" in write_states
+                else "candidate"
+                if "candidate" in write_states
                 else "unsupported"
             ),
             "brightness_write_ready": any(

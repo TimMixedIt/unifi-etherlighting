@@ -13,7 +13,7 @@ device_firmware=7.4.1.16850
 
 | Capability | State | Evidence | Produktive Entität |
 |---|---|---|---|
-| `brightness` | candidate | reversible | `number` (read-only) |
+| `brightness` | confirmed | reversible | `number` |
 | `behavior` | candidate | write_accepted | keine |
 | `mode` | candidate | captured | keine |
 | `enabled` | candidate | captured | keine |
@@ -26,8 +26,8 @@ Brightness wird in drei unabhängige Zustände getrennt:
 
 ```text
 brightness_read_supported=true
-brightness_write_supported=candidate
-brightness_write_ready=false
+brightness_write_supported=confirmed
+brightness_write_ready=true
 ```
 
-Die reversible UI-Beobachtung bestätigt nicht, dass alle vom UI-Write verwendeten Felder aus dem produktiven Device-Read sicher rekonstruiert werden können. Deshalb kann Evidenz vorhanden sein, während die produktive Schreibbereitschaft gesperrt bleibt.
+Alle vom UI-Write verwendeten Werte stammen entweder aus dem bestätigten Device-Read oder aus der live bestätigten UI-Forminitialisierung für `lcm_night_mode_enabled`. Ein vorhandener boolescher Wert wird bewahrt; nur bei Abwesenheit wird wie in der UI `false` initialisiert.

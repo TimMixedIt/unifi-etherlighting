@@ -43,6 +43,18 @@
       "status": 200
     }
   },
+  "ui_client_field_source": {
+    "method": "devtools_loaded_resource_search",
+    "field": "lcm_night_mode_enabled",
+    "matching_lines": 5,
+    "matching_files": 2,
+    "source_kind": "network_application_form_initialization",
+    "behavior": {
+      "when_field_present": "preserve_boolean",
+      "when_field_missing": "initialize_false"
+    },
+    "raw_source_stored": false
+  },
   "source_mapping": [
     {
       "write_path": "$.config_network",
@@ -166,9 +178,10 @@
     {
       "write_path": "$.lcm_night_mode_enabled",
       "type": "boolean",
-      "source_path": null,
+      "source_path": "ui_form_initial_values.lcm_night_mode_enabled",
       "source_request": null,
-      "status": "not_observed_in_ui_read_responses"
+      "default_when_absent": false,
+      "status": "confirmed_ui_client_initialization"
     },
     {
       "write_path": "$.lcm_night_mode_ends",
@@ -221,11 +234,9 @@
     }
   ],
   "conclusion": {
-    "complete_confirmed_write_configuration_available": false,
-    "unresolved_write_fields": [
-      "lcm_night_mode_enabled"
-    ],
-    "brightness_write_ready": false,
+    "complete_confirmed_write_configuration_available": true,
+    "unresolved_write_fields": [],
+    "brightness_write_ready": true,
     "no_speculative_source_added": true
   },
   "sanitization": {

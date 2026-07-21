@@ -6,9 +6,9 @@
 | Lokaler Logout | `POST` | `/api/auth/logout` | ja, Session-Abbau |
 | Network-Version | `GET` | `/proxy/network/v2/api/info` | ja, read-only |
 | Devices lesen | `GET` | `/proxy/network/api/s/{site}/stat/device` | ja, read-only |
-| Device schreiben | `PUT` | `/proxy/network/api/s/{site}/rest/device/{device}` | in 0.2.5 vollständig gesperrt |
+| Device schreiben | `PUT` | `/proxy/network/api/s/{site}/rest/device/{device}` | nur verifizierter Brightness-Service |
 
-Der Versionswert liegt an `$.system.version`. Der Device-Read verlangt `$.meta.rc = ok` und ein Array an `$.data`. Die Write-Route bleibt historische UI-Evidenz, ist aber nicht produktiv erreichbar, solange die vollständige UI-Konfiguration nicht aus bestätigten Reads rekonstruiert werden kann.
+Der Versionswert liegt an `$.system.version`. Der Device-Read verlangt `$.meta.rc = ok` und ein Array an `$.data`. Der Write verlangt HTTP-Erfolg, `$.meta.rc = ok`, den erwarteten Responsewert und einen unabhängigen Read-after-Write.
 
 Es gibt keine Fallback-, Legacy-, Site-Discovery- oder Detail-Device-Route. Ein einzelnes Device wird aus der bestätigten `stat/device`-Antwort eindeutig über seine vorhandene ID gewählt.
 

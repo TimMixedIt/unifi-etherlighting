@@ -1,6 +1,6 @@
 # Verifiziertes Brightness-Read-modify-write
 
-> **Release-Sperre 0.2.5:** Dieser Ablauf ist nicht produktiv erreichbar. Der echte `stat/device`-Read enthält `lcm_night_mode_enabled` nicht, obwohl das Feld Bestandteil des bestätigten UI-Write-Payloads war. Number-Entität und Brightness-Service brechen deshalb vor jeder Netzwerkoperation mit `confirmed_write_configuration_incomplete` ab.
+> **Freigabe 0.2.6:** Dieser Ablauf ist ausschließlich für die exakt validierte Versionskombination produktiv erreichbar. Das im Device-Read fehlende Feld `lcm_night_mode_enabled` folgt der live bestätigten UI-Initialisierung: vorhandenen booleschen Wert erhalten, bei Abwesenheit `false`, bei jedem anderen Typ sicher abbrechen.
 
 Der für eine spätere Freigabe vorgesehene Ablauf ist fachlich auf `ether_lighting.brightness` begrenzt:
 

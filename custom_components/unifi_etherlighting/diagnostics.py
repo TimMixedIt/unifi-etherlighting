@@ -44,6 +44,15 @@ _ALLOWED_OPTIONS = frozenset(
 _ALLOWED_CAPABILITY_KEYS = frozenset({"capability", "state", "evidence"})
 
 
+def _write_support_state(devices: tuple[Any, ...]) -> str:
+    states = {device.brightness_write_supported.value for device in devices}
+    if "confirmed" in states:
+        return "confirmed"
+    if "candidate" in states:
+        return "candidate"
+    return "unsupported"
+
+
 def redact_diagnostics(data: Mapping[str, Any]) -> dict[str, Any]:
     """Keep an explicit safe subset; all unlisted data including IDs is omitted."""
     redacted: dict[str, Any] = {}
@@ -99,14 +108,7 @@ async def async_get_config_entry_diagnostics(
         "brightness_read_supported": any(
             device.brightness_read_supported for device in data.devices
         ),
-        "brightness_write_supported": (
-            "candidate"
-            if any(
-                device.brightness_write_supported.value == "candidate"
-                for device in data.devices
-            )
-            else "unsupported"
-        ),
+        "brightness_write_supported": _write_support_state(data.devices),
         "brightness_write_ready": any(
             device.brightness_write_ready for device in data.devices
         ),

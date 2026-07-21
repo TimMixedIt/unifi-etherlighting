@@ -1,17 +1,17 @@
 # UniFi Etherlighting
 
-HACS-fähige Home-Assistant-Custom-Integration zum sicheren Lesen der Etherlighting-Helligkeit eines UniFi-Switches. Version 0.2.5 ist ausdrücklich schreibgesperrt.
+HACS-fähige Home-Assistant-Custom-Integration zum verifizierten Lesen und Schreiben der Etherlighting-Helligkeit eines UniFi-Switches.
 
 ## Aktueller Freigabestatus
 
 - `brightness_read_supported = true`
-- `brightness_write_supported = candidate`
-- `brightness_write_ready = false`
-- der aktuelle Wert bleibt als `number`-Entität lesbar
-- jeder Number- oder interne Serviceaufruf wird vor Login und Netzwerkzugriff gesperrt
-- PUT-, PATCH- und Device-POST-Requests sind in 0.2.5 nicht erreichbar
+- `brightness_write_supported = confirmed`
+- `brightness_write_ready = true`
+- der aktuelle Wert ist als `number`-Entität les- und schreibbar
+- jeder Write liest zuerst Version und vollständige Device-Konfiguration
+- jeder Write wird genau einmal gesendet und anschließend unabhängig gelesen
 
-Der bestätigte UI-Write enthielt `lcm_night_mode_enabled`. Dieses Feld fehlt im echten `stat/device`-Read. Es wird weder entfernt noch erfunden oder durch einen Defaultwert ersetzt.
+Der bestätigte UI-Write enthielt `lcm_night_mode_enabled`, obwohl das Feld im echten `stat/device`-Read fehlt. Die Network-Oberfläche bewahrt einen vorhandenen booleschen Wert und initialisiert ihn bei Fehlen ausdrücklich mit `false`. Version 0.2.6 bildet exakt dieses live beobachtete UI-Verhalten nach; für andere Felder gibt es keine Defaults.
 
 ## Exakt getestete Kombination
 
@@ -21,7 +21,7 @@ Der bestätigte UI-Write enthielt `lcm_night_mode_enabled`. Dieses Feld fehlt im
 - Modell: `USWED72`
 - Firmware: `7.4.1.16850`
 
-Nur diese exakte Kombination erzeugt eine lesbare Brightness-Entität. Eine Schreibfreigabe besteht für keine Kombination.
+Nur diese exakte Kombination erzeugt eine schreibbereite Brightness-Entität. Andere Network-, Modell- oder Firmware-Versionen erhalten keine Schreibfreigabe.
 
 ## Weiterhin nicht steuerbar
 
@@ -54,9 +54,9 @@ Die Integration lädt ausschließlich:
 - `sensor` für sicheren Status, Version und Capability-Diagnostik;
 - `number` für `Etherlighting brightness` pro ausgewähltem, exakt kompatiblem Switch.
 
-Polling liest die Network-Version und den bestätigten Device-Sammelpfad. Die zentrale Schreibsperre greift sowohl in der Number-Entität als auch am Anfang des Brightness-Service. Deshalb werden weder Payload-Projektion noch Authentifizierung oder Controllerzugriffe für einen Write gestartet.
+Polling liest die Network-Version und den bestätigten Device-Sammelpfad. Vor einem Write prüft der Brightness-Service erneut die exakte Versionskombination, liest den aktuellen Device-Zustand, baut den vollständigen UI-Payload und verifiziert den Zielwert durch einen unabhängigen Read.
 
-Ein Diagnosesensor und ein Repair melden `confirmed_write_configuration_incomplete`; als bekannt fehlendes Feld wird ausschließlich `lcm_night_mode_enabled` genannt.
+Ein Diagnosesensor meldet `write_capability=ready`. Bei einem unbestimmten Ergebnis wird nicht automatisch wiederholt; weitere Writes für das betroffene Gerät werden bis zur Prüfung blockiert.
 
 ## Datenschutz und Sicherheit
 

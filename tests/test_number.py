@@ -3,12 +3,12 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-from homeassistant.exceptions import HomeAssistantError
-import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.unifi_etherlighting import number as number_module
 from custom_components.unifi_etherlighting.api.models import CapabilityState
-from custom_components.unifi_etherlighting.const import DOMAIN
+from custom_components.unifi_etherlighting.brightness import BrightnessWriteOutcome
+from custom_components.unifi_etherlighting.const import CONF_SITE, DOMAIN
 from custom_components.unifi_etherlighting.coordinator import DiagnosticDevice
 from custom_components.unifi_etherlighting.number import (
     EtherlightingBrightnessNumber,
@@ -24,15 +24,15 @@ def test_number_uses_confirmed_ui_constraints() -> None:
     assert entity.native_unit_of_measurement == "%"
 
 
-def _read_only_number() -> EtherlightingBrightnessNumber:
+def _ready_number() -> EtherlightingBrightnessNumber:
     device = DiagnosticDevice(
         "device_001",
         "USWED72",
         "7.4.1.16850",
         30,
         True,
-        CapabilityState.CANDIDATE,
-        False,
+        CapabilityState.CONFIRMED,
+        True,
         False,
     )
     entity = object.__new__(EtherlightingBrightnessNumber)
@@ -40,37 +40,47 @@ def _read_only_number() -> EtherlightingBrightnessNumber:
     entity.coordinator = SimpleNamespace(
         last_update_success=True,
         device=lambda device_id: device if device_id == "device_001" else None,
+        async_request_refresh=AsyncMock(),
+        data=SimpleNamespace(),
     )
     return entity
 
 
-def test_number_keeps_read_value_and_exposes_write_lock() -> None:
-    entity = _read_only_number()
+def test_number_keeps_read_value_and_exposes_write_readiness() -> None:
+    entity = _ready_number()
     assert entity.native_value == 30
     assert entity.available
     assert entity.extra_state_attributes == {
         "brightness_read_supported": True,
-        "brightness_write_supported": "candidate",
-        "brightness_write_ready": False,
-        "write_capability": "blocked",
-        "write_block_reason": "confirmed_write_configuration_incomplete",
-        "missing_confirmed_fields": ["lcm_night_mode_enabled"],
+        "brightness_write_supported": "confirmed",
+        "brightness_write_ready": True,
+        "write_capability": "ready",
+        "write_block_reason": None,
+        "missing_confirmed_fields": [],
     }
 
 
-async def test_direct_number_service_call_fails_before_brightness_service() -> None:
-    entity = _read_only_number()
+async def test_direct_number_service_call_uses_verified_brightness_service(
+    monkeypatch,
+) -> None:
+    entity = _ready_number()
     brightness_service = AsyncMock()
-    entity._runtime = SimpleNamespace(brightness_service=brightness_service)
-
-    with pytest.raises(HomeAssistantError) as caught:
-        await entity.async_set_native_value(31)
-
-    assert str(caught.value) == (
-        "Etherlighting brightness writes are temporarily disabled because the "
-        "complete confirmed write configuration is unavailable."
+    brightness_service.async_set_brightness.return_value = SimpleNamespace(
+        outcome=BrightnessWriteOutcome.APPLIED
     )
-    brightness_service.async_set_brightness.assert_not_awaited()
+    entity._runtime = SimpleNamespace(brightness_service=brightness_service)
+    entity._entry = SimpleNamespace(data={CONF_SITE: "site_001"})
+    entity.hass = object()
+    sync_repairs = AsyncMock()
+    monkeypatch.setattr(number_module, "async_sync_repairs", sync_repairs)
+
+    await entity.async_set_native_value(31)
+
+    brightness_service.async_set_brightness.assert_awaited_once_with(
+        "site_001", "device_001", 31
+    )
+    entity.coordinator.async_request_refresh.assert_awaited_once()
+    sync_repairs.assert_awaited_once()
 
 
 async def test_candidate_device_creates_no_number(hass) -> None:

@@ -10,7 +10,9 @@ The UI issued `GET /api/users/self` immediately before each PUT. That response i
 
 All observed write fields except one map by field name and type to the selected Device object below `$.data[*]` in `stat/device`. Nested Etherlighting fields map below `$.data[*].ether_lighting`; network configuration fields map below `$.data[*].config_network`.
 
-`lcm_night_mode_enabled` was present in both UI-generated PUT payloads as a boolean, but was not present in the live `stat/device` Device object and no UI-read response was confirmed as its source. Its source therefore remains unresolved. The field is not removed, invented, defaulted, or derived.
+`lcm_night_mode_enabled` was present in both UI-generated PUT payloads as a boolean but absent from the live `stat/device` Device object. A subsequent DevTools search of the loaded Network Application resources found five matching lines in two JavaScript bundles. Both form implementations explicitly preserve a supplied boolean and initialize the field to `false` when it is absent. This exactly explains the observed read/UI-write difference.
+
+No bundle URL, hash, source file, or raw source text is retained. The documented behavior is limited to the field name, boolean type, result counts, and initialization semantics.
 
 The complete machine-readable path mapping is stored in `captures/write_configuration_source/field_sources.json`. It contains methods, relative pseudonymized endpoints, statuses, field names, types, and JSON paths only.
 
@@ -21,10 +23,10 @@ The complete machine-readable path mapping is stored in `captures/write_configur
 - Final brightness: 30
 - Raw request or response retained: no
 - Header values, Cookies, tokens, CSRF values, credentials, hosts, addresses, MACs, or controller identifiers retained: no
-- Complete confirmed write configuration available: no
+- Complete confirmed write configuration available: yes
 - `brightness_read_supported`: true
-- `brightness_write_supported`: candidate
-- `brightness_write_ready`: false
-- Release action: keep the central production write lock enabled
+- `brightness_write_supported`: confirmed
+- `brightness_write_ready`: true
+- Release action: allow the verified Brightness read-modify-write flow for the exact compatibility tuple
 
-This capture does not justify a payload-builder change. Version 0.2.5 remains an explicitly write-blocked diagnostic release.
+The payload builder may mirror this confirmed UI behavior: preserve an existing boolean, initialize the field to `false` only when absent, and fail closed for any other type. This does not authorize defaults for any other field or capability.

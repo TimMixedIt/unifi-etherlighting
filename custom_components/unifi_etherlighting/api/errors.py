@@ -78,6 +78,6 @@ class WriteBlockedError(UniFiEtherlightingError):
 class WriteCapabilityUnavailableError(UniFiEtherlightingError):
     """The central release gate blocks the requested write capability."""
 
-    def __init__(self, reason: str) -> None:
+    def __init__(self, reason: str | None) -> None:
         super().__init__(WRITE_DISABLED_MESSAGE)
         self.reason = reason

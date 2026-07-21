@@ -374,7 +374,8 @@ def test_token_and_payload_never_appear_in_debug_logs(enable_device_writes) -> N
     assert "ether_lighting" not in log_output
 
 
-def test_device_adapter_write_gate_blocks_before_transport() -> None:
+def test_device_adapter_write_gate_blocks_before_transport(monkeypatch) -> None:
+    monkeypatch.setattr(device_module, "WRITE_CAPABILITY_ENABLED", False)
     adapter, session = make_adapter({"meta": {"rc": "ok"}})
 
     with pytest.raises(WriteCapabilityUnavailableError) as caught:

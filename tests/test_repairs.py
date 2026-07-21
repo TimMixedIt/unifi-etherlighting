@@ -28,7 +28,7 @@ async def test_repairs_are_idempotent_and_old_read_issue_is_removed(hass) -> Non
                 30,
                 True,
                 current_capture_capabilities()[1].state,
-                False,
+                True,
                 False,
             ),
         ),
@@ -36,9 +36,9 @@ async def test_repairs_are_idempotent_and_old_read_issue_is_removed(hass) -> Non
         last_successful_update=None,
         last_verified_write=None,
         last_error=None,
-        write_capability="blocked",
-        write_block_reason="confirmed_write_configuration_incomplete",
-        missing_confirmed_fields=("lcm_night_mode_enabled",),
+        write_capability="ready",
+        write_block_reason=None,
+        missing_confirmed_fields=(),
     )
     await async_sync_repairs(hass, entry, data)
     await async_sync_repairs(hass, entry, data)
@@ -55,7 +55,7 @@ async def test_repairs_are_idempotent_and_old_read_issue_is_removed(hass) -> Non
         registry.async_get_issue(
             DOMAIN, f"{entry.entry_id}_write_configuration_incomplete"
         )
-        is not None
+        is None
     )
 
     unsupported = EtherlightingCoordinatorData(
@@ -67,9 +67,9 @@ async def test_repairs_are_idempotent_and_old_read_issue_is_removed(hass) -> Non
         last_successful_update=None,
         last_verified_write=None,
         last_error=None,
-        write_capability="blocked",
-        write_block_reason="confirmed_write_configuration_incomplete",
-        missing_confirmed_fields=("lcm_night_mode_enabled",),
+        write_capability="ready",
+        write_block_reason=None,
+        missing_confirmed_fields=(),
     )
     await async_sync_repairs(hass, entry, unsupported)
     assert (
