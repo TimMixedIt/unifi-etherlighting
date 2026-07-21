@@ -1,0 +1,38 @@
+{
+  "_id": "device_001",
+  "site_id": "site_001",
+  "type": "usw",
+  "model": "USWED72",
+  "version": "7.4.1.16850",
+  "name": "device_001",
+  "config_network": {
+    "type": "static",
+    "ip": "redacted",
+    "netmask": "redacted",
+    "gateway": "redacted",
+    "dns1": "redacted",
+    "dns2": "",
+    "dnssuffix": "",
+    "bonding_enabled": false
+  },
+  "ether_lighting": {
+    "mode": "network",
+    "brightness": 30,
+    "behavior": "steady",
+    "led_mode": "etherlighting"
+  },
+  "lcm_brightness": 80,
+  "lcm_brightness_override": false,
+  "lcm_night_mode_begins": "22:00",
+  "lcm_night_mode_enabled": false,
+  "lcm_night_mode_ends": "08:00",
+  "lcm_orientation_override": 0,
+  "mgmt_network_id": "network_001",
+  "snmp_contact": "",
+  "snmp_location": "",
+  "stp_priority": "8192",
+  "flowctrl_enabled": false,
+  "dot1x_portctrl_enabled": false,
+  "jumboframe_enabled": false,
+  "stp_version": "rstp"
+}

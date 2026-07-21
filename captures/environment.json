@@ -1,0 +1,10 @@
+{
+  "controller_type": "unifi_os",
+  "network_application_version": "10.5.62",
+  "device_type": "usw",
+  "device_model": "USWED72",
+  "device_firmware": "7.4.1.16850",
+  "capture_source": "unifi_network_web_ui",
+  "session_id": "brightness_capture_001",
+  "captured_at": "2026-07-21T13:59:54+02:00"
+}

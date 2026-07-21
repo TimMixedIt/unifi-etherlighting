@@ -1,0 +1,49 @@
+{
+  "capture_role": "authentication_login",
+  "session_id": "auth_capture_001",
+  "source": "unifi_network_web_ui",
+  "controller_type": "unifi_os",
+  "request": {
+    "method": "POST",
+    "path": "/api/auth/login",
+    "query": {},
+    "field_names": [
+      "password",
+      "rememberMe",
+      "token",
+      "username"
+    ],
+    "header_names": [
+      "Content-Type"
+    ],
+    "body_stored": false
+  },
+  "response": {
+    "status": 200,
+    "body_structure": {
+      "type": "object",
+      "description": "authenticated user profile",
+      "sensitive_areas_omitted": [
+        "authentication token fields",
+        "user identifiers",
+        "profile fields",
+        "authorization details"
+      ]
+    },
+    "cookie_names": [
+      "TOKEN"
+    ],
+    "header_names": [
+      "Content-Type",
+      "Set-Cookie",
+      "X-CSRF-Token"
+    ]
+  },
+  "ui_result": {
+    "authenticated_network_view_reached": true,
+    "mfa_challenge_observed": false,
+    "captcha_observed": false,
+    "certificate_warning_observed": false
+  },
+  "secrets_stored": false
+}

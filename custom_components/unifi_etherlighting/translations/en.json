@@ -1,0 +1,97 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect UniFi Etherlighting",
+        "description": "Sign in locally, validate the explicit UniFi Site, and read compatible switches. Setup never writes.",
+        "data": {
+          "host": "Controller host or IP address",
+          "port": "Port",
+          "use_ssl": "Use HTTPS",
+          "verify_ssl": "Verify TLS certificate",
+          "username": "Username",
+          "password": "Password",
+          "site": "UniFi Site"
+        }
+      },
+      "devices": {
+        "title": "Select Etherlighting switches",
+        "description": "Only switches matching the exactly validated Network, model, firmware, and Brightness schema are available.",
+        "data": {
+          "device_ids": "Compatible switches"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the controller.",
+      "invalid_auth": "Authentication failed.",
+      "invalid_ssl": "The TLS certificate could not be verified.",
+      "timeout": "The controller timed out.",
+      "site_not_found": "The UniFi Site could not be read.",
+      "no_devices": "No devices were returned for this UniFi Site.",
+      "no_compatible_devices": "No switch matches the exactly confirmed Brightness combination.",
+      "unsupported_network_version": "This Network Application version is not confirmed for Brightness writes.",
+      "unsupported_firmware": "The detected switch firmware is not confirmed for Brightness writes.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This controller is already configured.",
+      "unknown": "The setup flow lost its validated connection state."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "UniFi Etherlighting options",
+        "data": {
+          "poll_interval": "Refresh interval (seconds)",
+          "diagnostic_sensors": "Enable diagnostic sensors",
+          "debug_diagnostics": "Enable additional safe diagnostics",
+          "verify_ssl": "Verify TLS certificate"
+        }
+      }
+    }
+  },
+  "entity": {
+    "number": {
+      "etherlighting_brightness": {"name": "Etherlighting brightness"}
+    },
+    "sensor": {
+      "integration_status": {"name": "Integration status"},
+      "network_application_version": {"name": "Network Application version"},
+      "confirmed_capabilities": {"name": "Confirmed capabilities"},
+      "candidate_capabilities": {"name": "Candidate capabilities"},
+      "unsupported_capabilities": {"name": "Unsupported capabilities"}
+    }
+  },
+  "issues": {
+    "authentication_failed": {
+      "title": "UniFi authentication failed",
+      "description": "The local controller rejected or could not restore the authenticated session."
+    },
+    "network_version_unconfirmed": {
+      "title": "Network Application version not confirmed",
+      "description": "Brightness writes are disabled because the runtime Network Application version is not the exact validated version."
+    },
+    "unsupported_combination": {
+      "title": "Switch combination not supported",
+      "description": "The detected controller, model, firmware, or Etherlighting schema is outside the exact confirmed tuple."
+    },
+    "etherlighting_field_missing": {
+      "title": "Etherlighting Brightness field missing",
+      "description": "The selected switch no longer exposes the confirmed Etherlighting Brightness field."
+    },
+    "write_unverified": {
+      "title": "Brightness write could not be verified",
+      "description": "The controller state did not provide a safe Read-after-Write confirmation."
+    },
+    "api_schema_mismatch": {
+      "title": "UniFi API schema changed",
+      "description": "A confirmed response no longer matches the validated response structure."
+    },
+    "write_blocked": {
+      "title": "Brightness writes temporarily blocked",
+      "description": "An indeterminate write result blocked further writes for the affected switch until operator review."
+    }
+  }
+}

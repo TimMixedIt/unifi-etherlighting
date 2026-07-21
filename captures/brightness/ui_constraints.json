@@ -1,0 +1,19 @@
+{
+  "capture_role": "brightness_ui_constraints",
+  "source": "unifi_network_web_ui",
+  "network_application_version": "10.5.62",
+  "device_model": "USWED72",
+  "device_firmware": "7.4.1.16850",
+  "minimum": 1,
+  "maximum": 100,
+  "step": 1,
+  "unit": "%",
+  "evidence": {
+    "type": "dom_attributes_and_observed_ui_increment",
+    "details": "The real brightness input exposed min=1, max=100, current value=30, and type=range. The previously validated single UI increment changed 30 to 31 and was reversed to 30.",
+    "observed_dom_step_attribute": "0",
+    "step_interpretation": "The DOM step attribute was not used as an effective interval. Step 1 is confirmed by the real single-increment UI action and its captured write/read-back sequence.",
+    "controller_write_at_limits_performed": false
+  },
+  "confirmed": true
+}

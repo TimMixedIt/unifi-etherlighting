@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+.venv/
+venv/
+*.har
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+captures/raw/

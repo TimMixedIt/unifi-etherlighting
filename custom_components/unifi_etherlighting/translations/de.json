@@ -1,0 +1,97 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "UniFi Etherlighting verbinden",
+        "description": "Lokale Anmeldung, Prüfung der ausdrücklich angegebenen UniFi Site und Lesen kompatibler Switches. Die Einrichtung schreibt niemals.",
+        "data": {
+          "host": "Controller-Hostname oder IP-Adresse",
+          "port": "Port",
+          "use_ssl": "HTTPS verwenden",
+          "verify_ssl": "TLS-Zertifikat prüfen",
+          "username": "Benutzername",
+          "password": "Passwort",
+          "site": "UniFi Site"
+        }
+      },
+      "devices": {
+        "title": "Etherlighting-Switches auswählen",
+        "description": "Nur Switches mit exakt bestätigter Network-, Modell-, Firmware- und Brightness-Struktur stehen zur Auswahl.",
+        "data": {
+          "device_ids": "Kompatible Switches"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Der Controller ist nicht erreichbar.",
+      "invalid_auth": "Authentifizierung fehlgeschlagen.",
+      "invalid_ssl": "Das TLS-Zertifikat konnte nicht geprüft werden.",
+      "timeout": "Zeitüberschreitung beim Controller.",
+      "site_not_found": "Die UniFi Site konnte nicht gelesen werden.",
+      "no_devices": "Für diese UniFi Site wurden keine Geräte geliefert.",
+      "no_compatible_devices": "Kein Switch entspricht der exakt bestätigten Brightness-Kombination.",
+      "unsupported_network_version": "Diese Network-Application-Version ist nicht für Brightness-Schreibzugriffe bestätigt.",
+      "unsupported_firmware": "Die erkannte Switch-Firmware ist nicht für Brightness-Schreibzugriffe bestätigt.",
+      "unknown": "Ein unerwarteter Fehler ist aufgetreten."
+    },
+    "abort": {
+      "already_configured": "Dieser Controller ist bereits eingerichtet.",
+      "unknown": "Der validierte Verbindungszustand des Einrichtungsablaufs ging verloren."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "UniFi-Etherlighting-Optionen",
+        "data": {
+          "poll_interval": "Aktualisierungsintervall (Sekunden)",
+          "diagnostic_sensors": "Diagnosesensoren aktivieren",
+          "debug_diagnostics": "Zusätzliche sichere Diagnosen aktivieren",
+          "verify_ssl": "TLS-Zertifikat prüfen"
+        }
+      }
+    }
+  },
+  "entity": {
+    "number": {
+      "etherlighting_brightness": {"name": "Etherlighting-Helligkeit"}
+    },
+    "sensor": {
+      "integration_status": {"name": "Integrationsstatus"},
+      "network_application_version": {"name": "Network-Application-Version"},
+      "confirmed_capabilities": {"name": "Bestätigte Fähigkeiten"},
+      "candidate_capabilities": {"name": "Kandidatenfähigkeiten"},
+      "unsupported_capabilities": {"name": "Nicht unterstützte Fähigkeiten"}
+    }
+  },
+  "issues": {
+    "authentication_failed": {
+      "title": "UniFi-Authentifizierung fehlgeschlagen",
+      "description": "Der lokale Controller hat die authentifizierte Sitzung abgelehnt oder konnte sie nicht erneuern."
+    },
+    "network_version_unconfirmed": {
+      "title": "Network-Application-Version nicht bestätigt",
+      "description": "Brightness-Schreibzugriffe sind deaktiviert, weil die Laufzeitversion nicht exakt der validierten Version entspricht."
+    },
+    "unsupported_combination": {
+      "title": "Switch-Kombination nicht unterstützt",
+      "description": "Controller, Modell, Firmware oder Etherlighting-Schema liegen außerhalb der exakt bestätigten Kombination."
+    },
+    "etherlighting_field_missing": {
+      "title": "Etherlighting-Brightness-Feld fehlt",
+      "description": "Der ausgewählte Switch liefert das bestätigte Etherlighting-Brightness-Feld nicht mehr."
+    },
+    "write_unverified": {
+      "title": "Brightness-Schreibzugriff nicht verifiziert",
+      "description": "Der Controllerzustand lieferte keine sichere Read-after-Write-Bestätigung."
+    },
+    "api_schema_mismatch": {
+      "title": "UniFi-API-Schema geändert",
+      "description": "Eine bestätigte Antwort entspricht nicht mehr der validierten Response-Struktur."
+    },
+    "write_blocked": {
+      "title": "Brightness-Schreibzugriffe vorübergehend gesperrt",
+      "description": "Ein unbestimmtes Schreibergebnis sperrt weitere Zugriffe für den betroffenen Switch bis zur manuellen Prüfung."
+    }
+  }
+}

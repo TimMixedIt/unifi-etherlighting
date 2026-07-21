@@ -1,0 +1,112 @@
+{
+  "capture_role": "write_forward",
+  "session_id": "brightness_capture_001",
+  "version_context": {
+    "controller_type": "unifi_os",
+    "network_application_version": "10.5.62",
+    "device_model": "USWED72",
+    "device_firmware": "7.4.1.16850"
+  },
+  "ui_action": {
+    "setting": "brightness",
+    "before": 30,
+    "after": 31
+  },
+  "request": {
+    "method": "PUT",
+    "path": "/proxy/network/api/s/site_001/rest/device/device_001",
+    "query": {},
+    "header_names": [
+      "Content-Type",
+      "X-CSRF-Token"
+    ],
+    "body": {
+      "config_network": {
+        "type": "static",
+        "ip": "redacted",
+        "netmask": "redacted",
+        "gateway": "redacted",
+        "dns1": "redacted",
+        "dns2": "",
+        "dnssuffix": "",
+        "bonding_enabled": false
+      },
+      "ether_lighting": {
+        "mode": "network",
+        "brightness": 31,
+        "behavior": "steady",
+        "led_mode": "etherlighting"
+      },
+      "lcm_brightness": 80,
+      "lcm_brightness_override": false,
+      "lcm_night_mode_begins": "22:00",
+      "lcm_night_mode_enabled": false,
+      "lcm_night_mode_ends": "08:00",
+      "lcm_orientation_override": 0,
+      "mgmt_network_id": "network_001",
+      "name": "device_001",
+      "snmp_contact": "",
+      "snmp_location": "",
+      "stp_priority": "8192"
+    },
+    "sanitization": {
+      "replaced_sensitive_values": [
+        "config_network address values",
+        "mgmt_network_id",
+        "name"
+      ],
+      "removed_areas": []
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "meta": {
+        "rc": "ok"
+      },
+      "data": [
+        {
+          "_id": "device_001",
+          "site_id": "site_001",
+          "type": "usw",
+          "model": "USWED72",
+          "shortname": "USPH24P",
+          "version": "7.4.1.16850",
+          "ether_lighting": {
+            "mode": "network",
+            "brightness": 31,
+            "behavior": "steady",
+            "led_mode": "etherlighting"
+          },
+          "lcm_brightness": 80,
+          "lcm_brightness_override": false,
+          "flowctrl_enabled": false,
+          "dot1x_portctrl_enabled": false,
+          "jumboframe_enabled": false,
+          "stp_version": "rstp",
+          "stp_priority": "8192",
+          "switch_caps": {
+            "etherlight_caps": 655
+          }
+        }
+      ]
+    },
+    "sanitization": {
+      "scope": "target_device_configuration_projection",
+      "removed_sensitive_areas": [
+        "address data",
+        "hardware addresses",
+        "authentication material",
+        "internal names",
+        "nonessential identifiers"
+      ],
+      "removed_volatile_areas": [
+        "runtime statistics and telemetry",
+        "port runtime and link history",
+        "timestamps and uptime",
+        "temperature and traffic counters",
+        "controller revision and provisioning metadata"
+      ]
+    }
+  }
+}

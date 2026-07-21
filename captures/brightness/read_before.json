@@ -1,0 +1,73 @@
+{
+  "capture_role": "read_before",
+  "session_id": "brightness_capture_001",
+  "version_context": {
+    "controller_type": "unifi_os",
+    "network_application_version": "10.5.62",
+    "device_model": "USWED72",
+    "device_firmware": "7.4.1.16850"
+  },
+  "ui_state": {
+    "brightness": 30,
+    "mode": "network",
+    "behavior": "steady",
+    "enabled": true
+  },
+  "request": {
+    "method": "GET",
+    "path": "/proxy/network/api/s/site_001/stat/device",
+    "query": {},
+    "header_names": []
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "meta": {
+        "rc": "ok"
+      },
+      "data": [
+        {
+          "_id": "device_001",
+          "site_id": "site_001",
+          "type": "usw",
+          "model": "USWED72",
+          "shortname": "USPH24P",
+          "version": "7.4.1.16850",
+          "ether_lighting": {
+            "mode": "network",
+            "brightness": 30,
+            "behavior": "steady",
+            "led_mode": "etherlighting"
+          },
+          "lcm_brightness": 80,
+          "lcm_brightness_override": false,
+          "flowctrl_enabled": false,
+          "dot1x_portctrl_enabled": false,
+          "jumboframe_enabled": false,
+          "stp_version": "rstp",
+          "stp_priority": "8192",
+          "switch_caps": {
+            "etherlight_caps": 655
+          }
+        }
+      ]
+    },
+    "sanitization": {
+      "scope": "target_device_configuration_projection",
+      "removed_sensitive_areas": [
+        "address data",
+        "hardware addresses",
+        "authentication material",
+        "internal names",
+        "nonessential identifiers"
+      ],
+      "removed_volatile_areas": [
+        "runtime statistics and telemetry",
+        "port runtime and link history",
+        "timestamps and uptime",
+        "temperature and traffic counters",
+        "controller revision and provisioning metadata"
+      ]
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "capture_role": "controller_version_read",
+  "source": "unifi_network_web_ui",
+  "controller_type": "unifi_os",
+  "session_id": "controller_version_capture_001",
+  "request": {
+    "method": "GET",
+    "path": "/proxy/network/v2/api/info",
+    "query": {},
+    "header_names": [
+      "Accept",
+      "Cookie"
+    ]
+  },
+  "response": {
+    "status": 200,
+    "header_names": [
+      "Content-Type",
+      "X-CSRF-Token"
+    ],
+    "body": {
+      "version": "10.5.62"
+    },
+    "network_application_version_json_path": "$.version"
+  },
+  "csrf_observation": {
+    "source": "response_header",
+    "header_name": "X-CSRF-Token",
+    "value_stored": false
+  },
+  "reproduction": {
+    "ui_action": "normal_reload_of_control_plane_updates_view",
+    "configuration_changed": false,
+    "confirmed": true
+  },
+  "sanitization": {
+    "scope": "network_application_version_projection",
+    "removed_sensitive_areas": [
+      "controller and user interface settings",
+      "internal names and identifiers",
+      "address and hardware-address data",
+      "session header values",
+      "CSRF header value"
+    ],
+    "removed_volatile_areas": [
+      "uptime",
+      "runtime controller metadata"
+    ]
+  },
+  "secrets_stored": false
+}

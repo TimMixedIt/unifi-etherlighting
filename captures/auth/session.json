@@ -1,0 +1,55 @@
+{
+  "capture_role": "authentication_session",
+  "session_id": "auth_capture_001",
+  "source": "unifi_network_web_ui",
+  "controller_type": "unifi_os",
+  "session_cookie": {
+    "cookie_names": [
+      "TOKEN"
+    ],
+    "values_stored": false,
+    "persistence_contract": "in_memory_http_session_only"
+  },
+  "csrf": {
+    "header_name": "X-CSRF-Token",
+    "source": "response_header",
+    "observed_after_successful_login": true,
+    "renewal_value_compared": false,
+    "value_stored": false
+  },
+  "authenticated_device_read": {
+    "ui_action": "open_devices_view_after_successful_login",
+    "method": "GET",
+    "path": "/proxy/network/api/s/site_001/stat/device",
+    "query": {},
+    "status": 200,
+    "response_structure": {
+      "type": "object",
+      "required_paths": [
+        "$.meta.rc",
+        "$.data"
+      ],
+      "data_type": "array"
+    }
+  },
+  "logout": {
+    "observed_from_ui": true,
+    "method": "POST",
+    "path": "/api/auth/logout",
+    "query": {},
+    "status": 200,
+    "response_body": "empty"
+  },
+  "unauthenticated_observation": {
+    "request_method": "GET",
+    "request_path": "/api/users/self",
+    "status": 401,
+    "requires_new_login": true,
+    "status_403_observed": false
+  },
+  "conservative_reauthentication_policy": {
+    "read_401_or_403": "authenticate_once_then_repeat_read_once",
+    "write_401_or_403": "do_not_repeat_write; authenticate_then_read_current_device_and_classify"
+  },
+  "secrets_stored": false
+}

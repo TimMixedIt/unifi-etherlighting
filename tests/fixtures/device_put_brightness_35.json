@@ -1,0 +1,9 @@
+{
+  "_fixture_notice": "Reduced anonymous test representation; not a complete production payload.",
+  "name": "<redacted-device-name>",
+  "config_network": {"type": "<redacted-network-type>", "ip": "<redacted-ip>"},
+  "mgmt_network_id": "network_001",
+  "lcm_brightness": 50,
+  "ether_lighting": {"mode": "network", "brightness": 35, "behavior": "steady", "led_mode": "etherlighting"},
+  "unknown_controller_field": {"must_be_preserved": ["one", "two"]}
+}

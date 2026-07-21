@@ -1,0 +1,5 @@
+{
+  "_fixture_notice": "Reduced anonymous test representation; not a complete production response.",
+  "meta": {"rc": "ok"},
+  "data": [{"type": "usw", "model": "USWED72", "version": "7.4.1.16850", "ether_lighting": {"mode": "network", "brightness": 35, "behavior": "breath", "led_mode": "etherlighting"}}]
+}

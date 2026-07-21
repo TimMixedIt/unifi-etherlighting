@@ -1,0 +1,15 @@
+# Sicherheitsmodell Phase F
+
+- Ausschließlich die live bestätigten Login-, Logout-, Versions-, Device-Read- und Device-Write-Pfade sind implementiert.
+- Relative Pfade werden intern gebaut; Site- und Device-Parameter werden URL-kodiert.
+- Zugangsdaten werden nur für den bestätigten Login verwendet und nie geloggt.
+- Die dedizierte Home-Assistant-ClientSession hält Session-Cookies nur im Speicher.
+- Der Cookie-Name `TOKEN` und Headername `X-CSRF-Token` sind bestätigt; ihre Werte werden weder persistiert noch diagnostisch ausgegeben.
+- Diagnostics sind allowlist-basiert und enthalten weder Host, Site, Device-ID, Zugangsdaten, Payloads noch vollständige Responses.
+- Setup und Polling führen ausschließlich Reads aus.
+- Writes werden einmal gesendet, niemals automatisch wiederholt und immer per Device-Read klassifiziert.
+- Ein unbestimmtes Ergebnis sperrt weitere Writes für das betroffene Gerät.
+- Nur die exakte bestätigte Versionskombination kann Brightness freigeben.
+- Kein SSH, keine Portsteuerung, kein Raw-API-Service, kein Cloud-Upload und keine externe Telemetrie.
+
+HTTP 401 oder 403 bei einem Read erlaubt genau eine erneute Authentifizierung und eine einmalige Wiederholung des Reads. Ein Write wird bei 401, 403, Timeout oder Verbindungsabbruch nicht wiederholt; stattdessen folgt ein Read des aktuellen Zustands.
