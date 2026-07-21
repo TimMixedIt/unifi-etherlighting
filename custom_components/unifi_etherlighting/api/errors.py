@@ -1,5 +1,7 @@
 """Safe, narrow exceptions for the controller adapter layer."""
 
+from enum import StrEnum
+
 
 class UniFiEtherlightingError(Exception):
     """Base error for this integration's controller boundary."""
@@ -27,6 +29,24 @@ class UniFiTransportError(UniFiResponseError):
 
 class UniFiSchemaError(UniFiResponseError):
     """A confirmed response no longer matches its captured schema."""
+
+
+class VersionSchemaMismatchReason(StrEnum):
+    """Allowlisted reasons for a Network-version response mismatch."""
+
+    RESPONSE_ROOT_NOT_OBJECT = "response_root_not_object"
+    VERSION_FIELD_MISSING = "version_field_missing"
+    VERSION_WRONG_TYPE = "version_wrong_type"
+    VERSION_EMPTY = "version_empty"
+    VERSION_RESPONSE_UNEXPECTED = "version_response_unexpected"
+
+
+class UniFiVersionSchemaError(UniFiSchemaError):
+    """A safely classified Network-version response mismatch."""
+
+    def __init__(self, reason: VersionSchemaMismatchReason) -> None:
+        super().__init__(f"Network version schema mismatch: reason={reason.value}")
+        self.reason = reason
 
 
 class CapabilityNotConfirmedError(UniFiEtherlightingError):

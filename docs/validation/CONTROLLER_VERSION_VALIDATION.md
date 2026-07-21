@@ -11,7 +11,7 @@ The Network Application version is available through a reproducible, read-only r
 | Sanitized path | `/proxy/network/v2/api/info` |
 | Query | none |
 | HTTP status | 200 |
-| JSON path | `$.version` |
+| JSON path | `$.system.version` |
 | Network Application version | `10.5.62` |
 | Configuration mutation | none |
 
@@ -39,11 +39,13 @@ The response fixture is a sanitized projection containing only:
 
 ```json
 {
-  "version": "10.5.62"
+  "system": {
+    "version": "10.5.62"
+  }
 }
 ```
 
-The full response also contained controller, UI, runtime, naming, addressing, and identifier data. Those areas were removed. The runtime version contract is limited to a non-empty string at `$.version`.
+The full response also contained controller, UI, runtime, naming, addressing, and identifier data. Those areas were removed. A separate incognito capture with the temporary test user confirmed the JSON root as an object, the top-level fields `self` (object), `sites` (array), and `system` (object), and the runtime version as a non-empty string at `$.system.version`. The earlier `$.version` projection did not preserve the real nesting and is superseded by this exact shape confirmation.
 
 ## Security decision
 

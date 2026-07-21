@@ -9,6 +9,9 @@ from typing import Any
 import pytest
 
 from custom_components.unifi_etherlighting.api import client as client_module
+from custom_components.unifi_etherlighting.api.adapters import (
+    unifi_os_controller as controller_module,
+)
 from custom_components.unifi_etherlighting.api.adapters.unifi_os_device import (
     UniFiOsDeviceAdapter,
     validate_unifi_write_response,
@@ -21,6 +24,8 @@ from custom_components.unifi_etherlighting.api.errors import (
     UniFiAuthenticationError,
     UniFiPermissionError,
     UniFiResponseError,
+    UniFiVersionSchemaError,
+    VersionSchemaMismatchReason,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -108,7 +113,17 @@ def test_confirmed_proxy_path_uses_put_and_quotes_parameters() -> None:
 
 
 def test_controller_version_and_device_read_use_only_confirmed_paths() -> None:
-    session = FakeSession(FakeResponse(200, {"version": "10.5.62"}))
+    session = FakeSession(
+        FakeResponse(
+            200,
+            {
+                "self": {},
+                "sites": [],
+                "system": {"version": "10.5.62"},
+                "unknown_future_field": True,
+            },
+        )
+    )
     client = UniFiApiClient(session, "https://controller.invalid", csrf_token)
     controller = UniFiOsControllerAdapter(client)
     assert asyncio.run(controller.async_read_network_application_version()) == "10.5.62"
@@ -127,21 +142,89 @@ def test_controller_version_and_device_read_use_only_confirmed_paths() -> None:
     )
 
 
-def test_missing_version_and_device_schema_fail_closed() -> None:
-    for body in ({}, {"version": None}, {"version": ""}):
-        session = FakeSession(FakeResponse(200, body))
-        controller = UniFiOsControllerAdapter(
-            UniFiApiClient(session, "https://controller.invalid", csrf_token)
-        )
-        with pytest.raises(UniFiResponseError):
-            asyncio.run(controller.async_read_network_application_version())
+@pytest.mark.parametrize(
+    ("body", "reason"),
+    [
+        ([], VersionSchemaMismatchReason.RESPONSE_ROOT_NOT_OBJECT),
+        ({"self": {}, "sites": []}, VersionSchemaMismatchReason.VERSION_FIELD_MISSING),
+        ({"system": {}}, VersionSchemaMismatchReason.VERSION_FIELD_MISSING),
+        (
+            {"system": []},
+            VersionSchemaMismatchReason.VERSION_RESPONSE_UNEXPECTED,
+        ),
+        (
+            {"system": {"version": 10562}},
+            VersionSchemaMismatchReason.VERSION_WRONG_TYPE,
+        ),
+        (
+            {"system": {"version": ""}},
+            VersionSchemaMismatchReason.VERSION_EMPTY,
+        ),
+        (
+            {"system": {"version": "   "}},
+            VersionSchemaMismatchReason.VERSION_EMPTY,
+        ),
+    ],
+)
+def test_controller_version_schema_failures_are_classified(
+    body: Any, reason: VersionSchemaMismatchReason
+) -> None:
+    session = FakeSession(FakeResponse(200, body))
+    controller = UniFiOsControllerAdapter(
+        UniFiApiClient(session, "https://controller.invalid", csrf_token)
+    )
+    with pytest.raises(UniFiVersionSchemaError) as caught:
+        asyncio.run(controller.async_read_network_application_version())
+    assert caught.value.reason is reason
+    assert str(caught.value) == f"Network version schema mismatch: reason={reason.value}"
 
+
+def test_controller_version_schema_log_contains_only_names_and_types(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    sensitive_marker = "sensitive-value-must-not-be-logged"
+    response = {
+        "self": {"user": sensitive_marker},
+        "sites": [{"identifier": sensitive_marker}],
+        "system": {
+            "version": {
+                "TOKEN": sensitive_marker,
+                "Cookie": sensitive_marker,
+                "X-CSRF-Token": sensitive_marker,
+            }
+        },
+    }
+    session = FakeSession(FakeResponse(200, response))
+    controller = UniFiOsControllerAdapter(
+        UniFiApiClient(session, "https://controller.invalid", csrf_token)
+    )
+    caplog.set_level(logging.WARNING, logger=controller_module.__name__)
+
+    with pytest.raises(UniFiVersionSchemaError):
+        asyncio.run(controller.async_read_network_application_version())
+
+    assert "reason=version_wrong_type" in caplog.text
+    assert "root_type=object" in caplog.text
+    assert "top_level_keys=self,sites,system" in caplog.text
+    assert "version_candidates=$.system.version:object" in caplog.text
+    assert sensitive_marker not in caplog.text
+    assert "controller.invalid" not in caplog.text
+    assert "identifier" not in caplog.text
+    assert "Cookie" not in caplog.text
+    assert "TOKEN" not in caplog.text
+    assert "X-CSRF-Token" not in caplog.text
+
+
+def test_device_schema_failures_fail_closed() -> None:
     for body in (
         {},
         {"meta": {"rc": "error"}, "data": []},
         {"meta": {"rc": "ok"}, "data": {}},
     ):
-        adapter, _ = make_adapter(body)
+        session = FakeSession(FakeResponse(200, body))
+        adapter = UniFiOsDeviceAdapter(
+            UniFiApiClient(session, "https://controller.invalid", csrf_token)
+        )
         with pytest.raises(UniFiResponseError):
             asyncio.run(adapter.async_read_devices("site_001"))
 

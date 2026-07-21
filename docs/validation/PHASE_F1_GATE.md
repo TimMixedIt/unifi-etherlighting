@@ -14,7 +14,7 @@ The live prerequisites for implementing Etherlighting brightness as the sole pro
 | 2 | UI `min=1` | PASS |
 | 3 | UI `max=100` | PASS |
 | 4 | Effective UI step `1`, confirmed by the real 30 → 31 → 30 sequence | PASS |
-| 5 | `GET /proxy/network/v2/api/info`, `$.version` | PASS |
+| 5 | `GET /proxy/network/v2/api/info`, `$.system.version` | PASS |
 | 6 | `POST /api/auth/login` | PASS |
 | 7 | Session cookie name `TOKEN` | PASS |
 | 8 | `X-CSRF-Token` from a response header | PASS |

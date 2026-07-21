@@ -81,7 +81,7 @@ class UniFiApiClient:
         *,
         payload: dict[str, Any] | None,
         requires_csrf: bool,
-    ) -> dict[str, Any]:
+    ) -> Any:
         headers: dict[str, str] = {"Accept": "application/json"}
         if requires_csrf:
             token = await self._csrf_token_provider()
@@ -129,14 +129,12 @@ class UniFiApiClient:
                 request_may_have_been_sent=method.upper() not in {"GET", "HEAD"},
             ) from err
 
-        if not isinstance(response_data, dict):
-            raise UniFiSchemaError("Controller response root was not an object")
         _LOGGER.debug(
             "UniFi controller request succeeded: %s (HTTP %s)", method, status
         )
         return response_data
 
-    async def async_request_json(
+    async def async_request_json_value(
         self,
         method: str,
         relative_path: str,
@@ -145,8 +143,8 @@ class UniFiApiClient:
         requires_csrf: bool = False,
         authenticated: bool = True,
         retry_auth_once: bool = False,
-    ) -> dict[str, Any]:
-        """Request JSON without retrying writes or trying alternate routes."""
+    ) -> Any:
+        """Request a JSON value without trying alternate routes."""
         if authenticated and self._auth is not None:
             await self._auth.async_ensure_authenticated()
         try:
@@ -165,3 +163,26 @@ class UniFiApiClient:
             return await self._async_request_once(
                 method, relative_path, payload=payload, requires_csrf=requires_csrf
             )
+
+    async def async_request_json(
+        self,
+        method: str,
+        relative_path: str,
+        *,
+        payload: dict[str, Any] | None = None,
+        requires_csrf: bool = False,
+        authenticated: bool = True,
+        retry_auth_once: bool = False,
+    ) -> dict[str, Any]:
+        """Request a JSON object without retrying writes or alternate routes."""
+        response_data = await self.async_request_json_value(
+            method,
+            relative_path,
+            payload=payload,
+            requires_csrf=requires_csrf,
+            authenticated=authenticated,
+            retry_auth_once=retry_auth_once,
+        )
+        if not isinstance(response_data, dict):
+            raise UniFiSchemaError("Controller response root was not an object")
+        return response_data

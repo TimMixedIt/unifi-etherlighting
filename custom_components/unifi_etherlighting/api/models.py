@@ -122,7 +122,7 @@ CONFIRMED_CONTROLLER_VERSION_ENDPOINT = EndpointDefinition(
     path_template="/proxy/network/v2/api/info",
     evidence=EvidenceLevel.READ_VERIFIED,
     requires_csrf=False,
-    response_success_path="version",
+    response_success_path="system.version",
     response_success_value=None,
 )
 

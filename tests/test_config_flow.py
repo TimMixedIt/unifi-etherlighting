@@ -12,6 +12,8 @@ from custom_components.unifi_etherlighting.api.errors import (
     UniFiPermissionError,
     UniFiResponseError,
     UniFiSchemaError,
+    UniFiVersionSchemaError,
+    VersionSchemaMismatchReason,
 )
 from custom_components.unifi_etherlighting.config_flow import (
     ConfigFlow,
@@ -163,6 +165,53 @@ async def test_successful_validation_is_not_masked_by_logout_failure(
     assert "stage=logout" in caplog.text
     assert "category=validation_logout" in caplog.text
     assert "synthetic cleanup failure" not in caplog.text
+
+
+async def test_failed_version_read_stops_before_device_read_or_write(hass) -> None:
+    auth = MagicMock()
+    auth.authenticated = True
+    auth.async_login = AsyncMock()
+    auth.async_logout = AsyncMock()
+    auth.async_get_csrf_token = AsyncMock(return_value=None)
+
+    controller = MagicMock()
+    controller.async_read_network_application_version = AsyncMock(
+        side_effect=UniFiVersionSchemaError(
+            VersionSchemaMismatchReason.VERSION_FIELD_MISSING
+        )
+    )
+    devices = MagicMock()
+    devices.async_read_devices = AsyncMock()
+    devices.async_write_device = AsyncMock()
+
+    with (
+        patch(
+            "custom_components.unifi_etherlighting.config_flow.async_create_clientsession"
+        ),
+        patch(
+            "custom_components.unifi_etherlighting.config_flow.UniFiAuthSession",
+            return_value=auth,
+        ),
+        patch("custom_components.unifi_etherlighting.config_flow.UniFiApiClient"),
+        patch(
+            "custom_components.unifi_etherlighting.config_flow.UniFiOsControllerAdapter",
+            return_value=controller,
+        ),
+        patch(
+            "custom_components.unifi_etherlighting.config_flow.UniFiOsDeviceAdapter",
+            return_value=devices,
+        ),
+    ):
+        flow = ConfigFlow()
+        flow.hass = hass
+        with pytest.raises(ValidationStageError) as caught:
+            await flow._async_validate_connection(CONNECTION)
+
+    assert caught.value.stage is ValidationStage.VERSION_READ
+    assert isinstance(caught.value.cause, UniFiVersionSchemaError)
+    auth.async_login.assert_awaited_once()
+    devices.async_read_devices.assert_not_awaited()
+    devices.async_write_device.assert_not_awaited()
 
 
 @pytest.mark.parametrize(

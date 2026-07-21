@@ -1,0 +1,32 @@
+{
+  "capture_role": "test_user_version_response_shape",
+  "capture_source": "unifi_network_web_ui_incognito_test_user",
+  "captured_at": "2026-07-21T17:23:14Z",
+  "request": {
+    "method": "GET",
+    "path": "/proxy/network/v2/api/info",
+    "query": {}
+  },
+  "response": {
+    "status": 200,
+    "relevant_header_names": [
+      "Content-Type",
+      "X-CSRF-Token",
+      "X-Updated-CSRF-Token"
+    ],
+    "root_type": "object",
+    "top_level_fields": {
+      "self": "object",
+      "sites": "array",
+      "system": "object"
+    },
+    "version_candidates": [
+      {
+        "path": "$.system.version",
+        "type": "string",
+        "observed_version": "10.5.62"
+      }
+    ]
+  },
+  "contains_sensitive_values": false
+}

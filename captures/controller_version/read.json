@@ -19,9 +19,11 @@
       "X-CSRF-Token"
     ],
     "body": {
-      "version": "10.5.62"
+      "system": {
+        "version": "10.5.62"
+      }
     },
-    "network_application_version_json_path": "$.version"
+    "network_application_version_json_path": "$.system.version"
   },
   "csrf_observation": {
     "source": "response_header",
@@ -32,6 +34,10 @@
     "ui_action": "normal_reload_of_control_plane_updates_view",
     "configuration_changed": false,
     "confirmed": true
+  },
+  "schema_confirmation": {
+    "source": "separate_incognito_ui_capture_with_test_user",
+    "exact_root_shape_documented_in": "test_user_response_shape.json"
   },
   "sanitization": {
     "scope": "network_application_version_projection",
