@@ -25,6 +25,7 @@
     "error": {
       "cannot_connect": "Der Controller ist nicht erreichbar.",
       "invalid_auth": "Authentifizierung fehlgeschlagen.",
+      "insufficient_permissions": "Die Anmeldung war erfolgreich, aber das UniFi-Konto darf die benötigten Controllerdaten nicht lesen.",
       "invalid_ssl": "Das TLS-Zertifikat konnte nicht geprüft werden.",
       "timeout": "Zeitüberschreitung beim Controller.",
       "site_not_found": "Die UniFi Site konnte nicht gelesen werden.",

@@ -113,7 +113,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             all_devices = await devices.async_read_devices(data[CONF_SITE])
         finally:
             if auth.authenticated:
-                await auth.async_logout()
+                try:
+                    await auth.async_logout()
+                except Exception:
+                    # This session is temporary. A best-effort logout failure must not
+                    # replace a successful login/read result with "invalid_auth".
+                    # Do not log the exception because transport details may contain
+                    # controller-identifying data.
+                    auth.async_invalidate()
 
         if network_version != CURRENT_COMPATIBILITY.network_application_version:
             raise vol.Invalid("unsupported_network_version")
@@ -158,7 +165,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except UniFiAuthenticationError:
                 errors["base"] = "invalid_auth"
             except UniFiPermissionError:
-                errors["base"] = "invalid_auth"
+                errors["base"] = "insufficient_permissions"
             except UniFiTransportError as err:
                 cause_name = type(err.__cause__).__name__ if err.__cause__ else ""
                 if "Certificate" in cause_name:

@@ -7,5 +7,5 @@
   "issue_tracker": "https://github.com/TimMixedIt/unifi-etherlighting/issues",
   "integration_type": "hub",
   "iot_class": "local_polling",
-  "version": "0.2.1"
+  "version": "0.2.2"
 }
