@@ -62,8 +62,24 @@ async def test_coordinator_reads_version_and_devices_without_writing(hass) -> No
     assert coordinator.data.devices[0].brightness_read_supported
     assert coordinator.data.devices[0].brightness_write_supported.value == "confirmed"
     assert coordinator.data.devices[0].brightness_write_ready
+    assert coordinator.data.devices[0].behavior == "steady"
+    assert coordinator.data.devices[0].behavior_read_supported
+    assert coordinator.data.devices[0].behavior_write_supported.value == "confirmed"
+    assert coordinator.data.devices[0].behavior_write_ready
+    assert coordinator.data.devices[0].mode == "network"
+    assert coordinator.data.devices[0].mode_read_supported
+    assert coordinator.data.devices[0].mode_write_supported.value == "confirmed"
+    assert coordinator.data.devices[0].mode_write_ready
     assert any(
         item.capability == "brightness" and item.state.value == "confirmed"
+        for item in coordinator.data.capabilities
+    )
+    assert any(
+        item.capability == "behavior" and item.state.value == "confirmed"
+        for item in coordinator.data.capabilities
+    )
+    assert any(
+        item.capability == "mode" and item.state.value == "confirmed"
         for item in coordinator.data.capabilities
     )
     assert coordinator.data.write_capability == "ready"

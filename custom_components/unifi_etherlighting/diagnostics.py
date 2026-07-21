@@ -30,6 +30,12 @@ _ALLOWED_KEYS = frozenset(
         "brightness_read_supported",
         "brightness_write_supported",
         "brightness_write_ready",
+        "behavior_read_supported",
+        "behavior_write_supported",
+        "behavior_write_ready",
+        "mode_read_supported",
+        "mode_write_supported",
+        "mode_write_ready",
         "options",
     }
 )
@@ -44,8 +50,8 @@ _ALLOWED_OPTIONS = frozenset(
 _ALLOWED_CAPABILITY_KEYS = frozenset({"capability", "state", "evidence"})
 
 
-def _write_support_state(devices: tuple[Any, ...]) -> str:
-    states = {device.brightness_write_supported.value for device in devices}
+def _write_support_state(devices: tuple[Any, ...], attribute: str) -> str:
+    states = {getattr(device, attribute).value for device in devices}
     if "confirmed" in states:
         return "confirmed"
     if "candidate" in states:
@@ -108,10 +114,28 @@ async def async_get_config_entry_diagnostics(
         "brightness_read_supported": any(
             device.brightness_read_supported for device in data.devices
         ),
-        "brightness_write_supported": _write_support_state(data.devices),
+        "brightness_write_supported": _write_support_state(
+            data.devices, "brightness_write_supported"
+        ),
         "brightness_write_ready": any(
             device.brightness_write_ready for device in data.devices
         ),
+        "behavior_read_supported": any(
+            device.behavior_read_supported for device in data.devices
+        ),
+        "behavior_write_supported": _write_support_state(
+            data.devices, "behavior_write_supported"
+        ),
+        "behavior_write_ready": any(
+            device.behavior_write_ready for device in data.devices
+        ),
+        "mode_read_supported": any(
+            device.mode_read_supported for device in data.devices
+        ),
+        "mode_write_supported": _write_support_state(
+            data.devices, "mode_write_supported"
+        ),
+        "mode_write_ready": any(device.mode_write_ready for device in data.devices),
         "last_successful_read": (
             data.last_successful_update.isoformat()
             if data.last_successful_update

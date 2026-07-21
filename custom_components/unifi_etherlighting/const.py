@@ -6,7 +6,7 @@ from datetime import timedelta
 
 DOMAIN = "unifi_etherlighting"
 NAME = "UniFi Etherlighting"
-VERSION = "0.2.6"
+VERSION = "0.3.0"
 
 CONF_HOST = "host"
 CONF_PORT = "port"
@@ -41,6 +41,6 @@ ACTIVE_WRITE_BLOCK_REASON: str | None = (
 )
 MISSING_CONFIRMED_WRITE_FIELDS: tuple[str, ...] = ()
 WRITE_DISABLED_MESSAGE = (
-    "Etherlighting brightness writes are temporarily disabled because the "
-    "complete confirmed write configuration is unavailable."
+    "Etherlighting writes are temporarily disabled because the complete "
+    "confirmed write configuration is unavailable."
 )

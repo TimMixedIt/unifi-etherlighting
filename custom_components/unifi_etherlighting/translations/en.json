@@ -36,9 +36,9 @@
       "timeout": "The controller timed out.",
       "site_not_found": "The UniFi Site could not be read.",
       "no_devices": "No devices were returned for this UniFi Site.",
-      "no_compatible_devices": "No switch matches the exactly confirmed Brightness combination.",
-      "unsupported_network_version": "This Network Application version is not confirmed for Brightness writes.",
-      "unsupported_firmware": "The detected switch firmware is not confirmed for Brightness writes.",
+      "no_compatible_devices": "No switch matches the exactly confirmed Etherlighting control combination.",
+      "unsupported_network_version": "This Network Application version is not confirmed for Etherlighting writes.",
+      "unsupported_firmware": "The detected switch firmware is not confirmed for Etherlighting writes.",
       "unknown": "An unexpected error occurred.",
       "invalid_site": "The UniFi Site may only contain letters, numbers, underscores, and hyphens."
     },
@@ -66,6 +66,11 @@
         "name": "Etherlighting brightness"
       }
     },
+    "select": {
+      "etherlighting_mode": {
+        "name": "Etherlighting mode"
+      }
+    },
     "sensor": {
       "integration_status": {
         "name": "Integration status"
@@ -74,7 +79,7 @@
         "name": "Network Application version"
       },
       "brightness_write_capability": {
-        "name": "Brightness write readiness"
+        "name": "Etherlighting write readiness"
       },
       "confirmed_capabilities": {
         "name": "Confirmed capabilities"
@@ -85,6 +90,11 @@
       "unsupported_capabilities": {
         "name": "Unsupported capabilities"
       }
+    },
+    "switch": {
+      "breathing_mode": {
+        "name": "Breathing mode"
+      }
     }
   },
   "issues": {
@@ -94,18 +104,18 @@
     },
     "network_version_unconfirmed": {
       "title": "Network Application version not confirmed",
-      "description": "Brightness writes are disabled because the runtime Network Application version is not the exact validated version."
+      "description": "Etherlighting writes are disabled because the runtime Network Application version is not the exact validated version."
     },
     "unsupported_combination": {
       "title": "Switch combination not supported",
       "description": "The detected controller, model, firmware, or Etherlighting schema is outside the exact confirmed tuple."
     },
     "etherlighting_field_missing": {
-      "title": "Etherlighting Brightness field missing",
-      "description": "The selected switch no longer exposes the confirmed Etherlighting Brightness field."
+      "title": "Etherlighting control field missing",
+      "description": "The selected switch no longer exposes the confirmed Etherlighting control fields."
     },
     "write_unverified": {
-      "title": "Brightness write could not be verified",
+      "title": "Etherlighting write could not be verified",
       "description": "The controller state did not provide a safe Read-after-Write confirmation."
     },
     "api_schema_mismatch": {
@@ -113,12 +123,12 @@
       "description": "A confirmed response no longer matches the validated response structure."
     },
     "write_blocked": {
-      "title": "Brightness writes temporarily blocked",
+      "title": "Etherlighting writes temporarily blocked",
       "description": "An indeterminate write result blocked further writes for the affected switch until operator review."
     },
     "write_configuration_incomplete": {
-      "title": "Etherlighting brightness is read-only",
-      "description": "Etherlighting brightness can be read. Writes are blocked because the complete device configuration used by the UniFi interface has not yet been safely confirmed."
+      "title": "Etherlighting controls are read-only",
+      "description": "Etherlighting state can be read. Writes are blocked because the complete device configuration used by the UniFi interface has not yet been safely confirmed."
     }
   }
 }

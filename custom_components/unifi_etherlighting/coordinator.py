@@ -15,10 +15,12 @@ from .api.adapters.unifi_os_controller import UniFiOsControllerAdapter
 from .api.adapters.unifi_os_device import UniFiOsDeviceAdapter
 from .api.errors import UniFiEtherlightingError
 from .api.models import (
-    CapabilityState,
     CapabilityEvidence,
+    CapabilityState,
+    behavior_capability_status,
     brightness_capability_status,
     capabilities_for_runtime,
+    mode_capability_status,
 )
 from .brightness import BrightnessService
 from .const import (
@@ -46,6 +48,14 @@ class DiagnosticDevice:
     brightness_read_supported: bool
     brightness_write_supported: CapabilityState
     brightness_write_ready: bool
+    behavior: str | None
+    behavior_read_supported: bool
+    behavior_write_supported: CapabilityState
+    behavior_write_ready: bool
+    mode: str | None
+    mode_read_supported: bool
+    mode_write_supported: CapabilityState
+    mode_write_ready: bool
     write_blocked: bool
 
 
@@ -70,6 +80,16 @@ def _device_brightness(device: dict[str, Any]) -> int | None:
         return None
     value = ether_lighting.get("brightness")
     return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _device_choice(
+    device: dict[str, Any], field: str, allowed: frozenset[str]
+) -> str | None:
+    ether_lighting = device.get("ether_lighting")
+    if not isinstance(ether_lighting, dict):
+        return None
+    value = ether_lighting.get(field)
+    return value if isinstance(value, str) and value in allowed else None
 
 
 class EtherlightingDataUpdateCoordinator(
@@ -118,16 +138,32 @@ class EtherlightingDataUpdateCoordinator(
         for device in selected:
             if not isinstance(device.get("_id"), str):
                 continue
-            capability = brightness_capability_status(network_version, device)
+            brightness_capability = brightness_capability_status(
+                network_version, device
+            )
+            behavior_capability = behavior_capability_status(network_version, device)
+            mode_capability = mode_capability_status(network_version, device)
             diagnostic_devices_list.append(
                 DiagnosticDevice(
                     identifier=str(device["_id"]),
                     model=str(device.get("model", "unknown")),
                     firmware=str(device.get("version", "unknown")),
                     brightness=_device_brightness(device),
-                    brightness_read_supported=capability.read_supported,
-                    brightness_write_supported=capability.write_supported,
-                    brightness_write_ready=capability.write_ready,
+                    brightness_read_supported=brightness_capability.read_supported,
+                    brightness_write_supported=brightness_capability.write_supported,
+                    brightness_write_ready=brightness_capability.write_ready,
+                    behavior=_device_choice(
+                        device, "behavior", frozenset({"steady", "breath"})
+                    ),
+                    behavior_read_supported=behavior_capability.read_supported,
+                    behavior_write_supported=behavior_capability.write_supported,
+                    behavior_write_ready=behavior_capability.write_ready,
+                    mode=_device_choice(
+                        device, "mode", frozenset({"network", "speed"})
+                    ),
+                    mode_read_supported=mode_capability.read_supported,
+                    mode_write_supported=mode_capability.write_supported,
+                    mode_write_ready=mode_capability.write_ready,
                     write_blocked=self._brightness_service.is_write_blocked(
                         str(device["_id"])
                     ),
@@ -136,7 +172,12 @@ class EtherlightingDataUpdateCoordinator(
         diagnostic_devices = tuple(diagnostic_devices_list)
         status = (
             CONTROLLER_STATUS_ONLINE
-            if any(device.brightness_read_supported for device in diagnostic_devices)
+            if any(
+                device.brightness_read_supported
+                or device.behavior_read_supported
+                or device.mode_read_supported
+                for device in diagnostic_devices
+            )
             else CONTROLLER_STATUS_UNSUPPORTED
         )
         return EtherlightingCoordinatorData(

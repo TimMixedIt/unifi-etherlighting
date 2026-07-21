@@ -1,1 +1,1 @@
-# No services are registered. Brightness is exposed only through the verified number entity.
+# No custom services are registered. Controls use native Number, Switch, and Select entities.

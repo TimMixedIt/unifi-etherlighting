@@ -86,7 +86,7 @@ class EtherlightingVersionSensor(EtherlightingDiagnosticEntity, SensorEntity):
 
 
 class EtherlightingWriteCapabilitySensor(EtherlightingDiagnosticEntity, SensorEntity):
-    """Expose only the bounded central write-lock state and reason."""
+    """Expose the bounded central write-lock state and confirmed controls."""
 
     _attr_translation_key = "brightness_write_capability"
 
@@ -101,9 +101,7 @@ class EtherlightingWriteCapabilitySensor(EtherlightingDiagnosticEntity, SensorEn
     @property
     def extra_state_attributes(self) -> dict[str, object]:
         devices = self.coordinator.data.devices
-        write_states = {
-            device.brightness_write_supported.value for device in devices
-        }
+        write_states = {device.brightness_write_supported.value for device in devices}
         return {
             "brightness_read_supported": any(
                 device.brightness_read_supported for device in devices
@@ -118,6 +116,32 @@ class EtherlightingWriteCapabilitySensor(EtherlightingDiagnosticEntity, SensorEn
             "brightness_write_ready": any(
                 device.brightness_write_ready for device in devices
             ),
+            "behavior_read_supported": any(
+                device.behavior_read_supported for device in devices
+            ),
+            "behavior_write_supported": (
+                "confirmed"
+                if any(
+                    device.behavior_write_supported.value == "confirmed"
+                    for device in devices
+                )
+                else "unsupported"
+            ),
+            "behavior_write_ready": any(
+                device.behavior_write_ready for device in devices
+            ),
+            "mode_read_supported": any(
+                device.mode_read_supported for device in devices
+            ),
+            "mode_write_supported": (
+                "confirmed"
+                if any(
+                    device.mode_write_supported.value == "confirmed"
+                    for device in devices
+                )
+                else "unsupported"
+            ),
+            "mode_write_ready": any(device.mode_write_ready for device in devices),
             "write_block_reason": self.coordinator.data.write_block_reason,
             "missing_confirmed_fields": list(
                 self.coordinator.data.missing_confirmed_fields

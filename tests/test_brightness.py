@@ -20,7 +20,10 @@ from custom_components.unifi_etherlighting.api.errors import (
 from custom_components.unifi_etherlighting.brightness import (
     BrightnessService,
     BrightnessWriteOutcome,
+    build_behavior_write_payload,
     build_brightness_write_payload,
+    build_etherlighting_write_payload,
+    build_mode_write_payload,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -83,9 +86,11 @@ class FakeDevices:
         self.writes.append(deepcopy(payload))
         if self.write_error:
             raise self.write_error
+        ether_lighting = deepcopy(payload["ether_lighting"])
+        ether_lighting["brightness"] = self.response_brightness
         return {
             "meta": {"rc": "ok"},
-            "data": [{"ether_lighting": {"brightness": self.response_brightness}}],
+            "data": [{"ether_lighting": ether_lighting}],
         }
 
 
@@ -151,6 +156,38 @@ def test_present_night_mode_value_is_preserved_and_validated() -> None:
         build_brightness_write_payload(current, 31)
 
 
+def test_behavior_and_mode_payloads_change_exactly_one_field() -> None:
+    current = complete_write_source()
+    behavior = build_behavior_write_payload(current, "breath")
+    assert behavior["ether_lighting"] == {
+        "mode": "network",
+        "brightness": 30,
+        "behavior": "breath",
+        "led_mode": "etherlighting",
+    }
+    mode = build_mode_write_payload(current, "speed")
+    assert mode["ether_lighting"] == {
+        "mode": "speed",
+        "brightness": 30,
+        "behavior": "steady",
+        "led_mode": "etherlighting",
+    }
+    assert current == complete_write_source()
+
+
+def test_control_payload_rejects_unconfirmed_values_and_multiple_changes() -> None:
+    current = complete_write_source()
+    for changes in (
+        {"behavior": "pulse"},
+        {"mode": "color"},
+        {"led_mode": "off"},
+        {"mode": "speed", "behavior": "breath"},
+        {},
+    ):
+        with pytest.raises(ValueError):
+            build_etherlighting_write_payload(current, changes)
+
+
 def test_successful_write_is_sent_once_and_read_back(monkeypatch) -> None:
     monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
     devices = FakeDevices([device(30), device(31)])
@@ -162,6 +199,47 @@ def test_successful_write_is_sent_once_and_read_back(monkeypatch) -> None:
     assert devices.writes[0]["ether_lighting"]["brightness"] == 31
     assert devices.writes[0]["lcm_night_mode_enabled"] is False
     assert service.last_verified_write is not None
+
+
+@pytest.mark.parametrize(
+    ("method", "field", "before_value", "target_value"),
+    (
+        ("async_set_behavior", "behavior", "steady", "breath"),
+        ("async_set_mode", "mode", "network", "speed"),
+    ),
+)
+async def test_behavior_and_mode_write_once_and_read_back(
+    monkeypatch, method, field, before_value, target_value
+) -> None:
+    monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
+    before = complete_write_source()
+    after = complete_write_source()
+    before["ether_lighting"][field] = before_value
+    after["ether_lighting"][field] = target_value
+    devices = FakeDevices([before, after], response_brightness=30)
+    service = BrightnessService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
+
+    result = await getattr(service, method)("site_001", "device_001", target_value)
+
+    assert result.outcome is BrightnessWriteOutcome.APPLIED
+    assert result.field == field
+    assert result.observed == target_value
+    assert len(devices.writes) == 1
+    assert devices.writes[0]["ether_lighting"][field] == target_value
+    unchanged = {"brightness", "behavior", "mode"} - {field}
+    for unchanged_field in unchanged:
+        assert devices.writes[0]["ether_lighting"][unchanged_field] == before[
+            "ether_lighting"
+        ][unchanged_field]
+
+
+async def test_noop_control_does_not_write(monkeypatch) -> None:
+    monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
+    devices = FakeDevices([complete_write_source()])
+    service = BrightnessService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
+    result = await service.async_set_mode("site_001", "device_001", "network")
+    assert result.outcome is BrightnessWriteOutcome.APPLIED
+    assert devices.writes == []
 
 
 def test_other_runtime_version_blocks_before_write(monkeypatch) -> None:
@@ -233,7 +311,7 @@ async def test_central_write_gate_stops_before_every_network_operation(
 
     assert caught.value.reason == "confirmed_write_configuration_incomplete"
     assert str(caught.value) == (
-        "Etherlighting brightness writes are temporarily disabled because the "
+        "Etherlighting writes are temporarily disabled because the "
         "complete confirmed write configuration is unavailable."
     )
     assert service.last_error_code == "confirmed_write_configuration_incomplete"

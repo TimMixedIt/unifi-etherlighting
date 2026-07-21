@@ -1,4 +1,4 @@
-"""UniFi Etherlighting with one verified, versions-bound brightness control."""
+"""UniFi Etherlighting with verified, version-bound local controls."""
 
 from __future__ import annotations
 
@@ -27,7 +27,12 @@ from .const import (
 from .coordinator import EtherlightingDataUpdateCoordinator
 from .repairs import async_sync_repairs
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.NUMBER]
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.NUMBER,
+    Platform.SWITCH,
+    Platform.SELECT,
+]
 
 
 @dataclass(slots=True)

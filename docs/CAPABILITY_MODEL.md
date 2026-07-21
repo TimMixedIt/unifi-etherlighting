@@ -14,20 +14,22 @@ device_firmware=7.4.1.16850
 | Capability | State | Evidence | Produktive Entität |
 |---|---|---|---|
 | `brightness` | confirmed | reversible | `number` |
-| `behavior` | candidate | write_accepted | keine |
-| `mode` | candidate | captured | keine |
+| `behavior` | confirmed | reversible | `switch` |
+| `mode` | confirmed | reversible | `select` |
 | `enabled` | candidate | captured | keine |
 | `network_color` | candidate | captured | keine |
 | `port_control` | unsupported | unknown | keine |
 
 Die erfolgreiche Device-PUT-Route bleibt selbst eine technische Candidate-Evidenz und wird nicht als Raw-API-Capability veröffentlicht.
 
-Brightness wird in drei unabhängige Zustände getrennt:
+Jede produktive Steuerung wird in drei unabhängige Zustände getrennt:
 
 ```text
 brightness_read_supported=true
 brightness_write_supported=confirmed
 brightness_write_ready=true
 ```
+
+Dasselbe Modell gilt als `behavior_*` und `mode_*`. Behavior akzeptiert ausschließlich `steady` und `breath`; Mode ausschließlich `network` und `speed`.
 
 Alle vom UI-Write verwendeten Werte stammen entweder aus dem bestätigten Device-Read oder aus der live bestätigten UI-Forminitialisierung für `lcm_night_mode_enabled`. Ein vorhandener boolescher Wert wird bewahrt; nur bei Abwesenheit wird wie in der UI `false` initialisiert.

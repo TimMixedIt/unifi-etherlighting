@@ -65,14 +65,25 @@ async def test_diagnostic_sensor_states_are_bounded(hass) -> None:
         coordinator, "controller-entry"
     )
     assert status.native_value == "online"
-    assert confirmed.extra_state_attributes == {"brightness": "confirmed"}
+    assert confirmed.extra_state_attributes == {
+        "brightness": "confirmed",
+        "behavior": "confirmed",
+        "mode": "confirmed",
+    }
     assert write_status.native_value == "ready"
     assert write_status.extra_state_attributes == {
         "brightness_read_supported": True,
         "brightness_write_supported": "confirmed",
         "brightness_write_ready": True,
+        "behavior_read_supported": True,
+        "behavior_write_supported": "confirmed",
+        "behavior_write_ready": True,
+        "mode_read_supported": True,
+        "mode_write_supported": "confirmed",
+        "mode_write_ready": True,
         "write_block_reason": None,
         "missing_confirmed_fields": [],
     }
-    assert "behavior" in candidates.extra_state_attributes
+    assert "behavior" not in candidates.extra_state_attributes
+    assert "enabled" in candidates.extra_state_attributes
     assert "payload" not in candidates.extra_state_attributes

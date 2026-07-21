@@ -26,14 +26,22 @@ def test_number_uses_confirmed_ui_constraints() -> None:
 
 def _ready_number() -> EtherlightingBrightnessNumber:
     device = DiagnosticDevice(
-        "device_001",
-        "USWED72",
-        "7.4.1.16850",
-        30,
-        True,
-        CapabilityState.CONFIRMED,
-        True,
-        False,
+        identifier="device_001",
+        model="USWED72",
+        firmware="7.4.1.16850",
+        brightness=30,
+        brightness_read_supported=True,
+        brightness_write_supported=CapabilityState.CONFIRMED,
+        brightness_write_ready=True,
+        behavior="steady",
+        behavior_read_supported=True,
+        behavior_write_supported=CapabilityState.CONFIRMED,
+        behavior_write_ready=True,
+        mode="network",
+        mode_read_supported=True,
+        mode_write_supported=CapabilityState.CONFIRMED,
+        mode_write_ready=True,
+        write_blocked=False,
     )
     entity = object.__new__(EtherlightingBrightnessNumber)
     entity._device_id = "device_001"
@@ -90,14 +98,22 @@ async def test_candidate_device_creates_no_number(hass) -> None:
             data=SimpleNamespace(
                 devices=(
                     DiagnosticDevice(
-                        "device_001",
-                        "USWED72",
-                        "7.4.1.16850",
-                        30,
-                        False,
-                        CapabilityState.UNSUPPORTED,
-                        False,
-                        False,
+                        identifier="device_001",
+                        model="USWED72",
+                        firmware="7.4.1.16850",
+                        brightness=30,
+                        brightness_read_supported=False,
+                        brightness_write_supported=CapabilityState.UNSUPPORTED,
+                        brightness_write_ready=False,
+                        behavior=None,
+                        behavior_read_supported=False,
+                        behavior_write_supported=CapabilityState.UNSUPPORTED,
+                        behavior_write_ready=False,
+                        mode=None,
+                        mode_read_supported=False,
+                        mode_write_supported=CapabilityState.UNSUPPORTED,
+                        mode_write_ready=False,
+                        write_blocked=False,
                     ),
                 )
             )

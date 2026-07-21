@@ -10,7 +10,8 @@
 - Setup und Polling führen ausschließlich Reads aus.
 - Writes werden einmal gesendet, niemals automatisch wiederholt und immer per Device-Read klassifiziert.
 - Ein unbestimmtes Ergebnis sperrt weitere Writes für das betroffene Gerät.
-- Nur die exakte bestätigte Versionskombination kann Brightness freigeben.
+- Nur die exakte bestätigte Versionskombination kann Brightness, Breathing und Mode freigeben.
+- Pro Aktion darf exakt eines dieser bestätigten Felder geändert werden; Werte außerhalb der jeweiligen Allowlist brechen vor dem Write ab.
 - Kein SSH, keine Portsteuerung, kein Raw-API-Service, kein Cloud-Upload und keine externe Telemetrie.
 
 HTTP 401 oder 403 bei einem Read erlaubt genau eine erneute Authentifizierung und eine einmalige Wiederholung des Reads. Ein Write wird bei 401, 403, Timeout oder Verbindungsabbruch nicht wiederholt; stattdessen folgt ein Read des aktuellen Zustands.

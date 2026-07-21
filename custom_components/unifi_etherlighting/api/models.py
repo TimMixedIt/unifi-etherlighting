@@ -92,7 +92,7 @@ class CapabilityEvidence:
 
 
 @dataclass(frozen=True, slots=True)
-class BrightnessCapabilityStatus:
+class ControlCapabilityStatus:
     """Keep readable state, write evidence, and release readiness separate."""
 
     read_supported: bool
@@ -184,23 +184,23 @@ def current_capture_capabilities() -> tuple[CapabilityEvidence, ...]:
         ),
         CapabilityEvidence(
             "behavior",
-            CapabilityState.CANDIDATE,
-            EvidenceLevel.WRITE_ACCEPTED,
+            CapabilityState.CONFIRMED,
+            EvidenceLevel.REVERSIBLE,
             CURRENT_COMPATIBILITY,
             "ether_lighting.behavior",
             ("steady", "breath"),
             (
-                "Write response matched captured values; reversal/read verification is absent.",
+                "UI write, read-back, reversal, and final read are live-confirmed.",
             ),
         ),
         CapabilityEvidence(
             "mode",
-            CapabilityState.CANDIDATE,
-            EvidenceLevel.CAPTURED,
+            CapabilityState.CONFIRMED,
+            EvidenceLevel.REVERSIBLE,
             CURRENT_COMPATIBILITY,
             "ether_lighting.mode",
-            ("network",),
-            ("Observed as an unchanged accompanying value, not a tested mode change.",),
+            ("network", "speed"),
+            ("UI write, read-back, reversal, and final read are live-confirmed.",),
         ),
         CapabilityEvidence(
             "enabled",
@@ -260,14 +260,34 @@ def brightness_read_is_supported(
     )
 
 
-def brightness_capability_status(
+def behavior_read_is_supported(
     network_application_version: str, device: dict[str, Any]
-) -> BrightnessCapabilityStatus:
-    """Return independent read, write-evidence, and write-readiness states."""
-    read_supported = brightness_read_is_supported(
-        network_application_version, device
+) -> bool:
+    """Expose behavior only for the exact tuple and confirmed values."""
+    ether_lighting = device.get("ether_lighting")
+    return (
+        compatibility_key_for_device(network_application_version, device)
+        == CURRENT_COMPATIBILITY
+        and isinstance(ether_lighting, dict)
+        and ether_lighting.get("behavior") in {"steady", "breath"}
     )
-    return BrightnessCapabilityStatus(
+
+
+def mode_read_is_supported(
+    network_application_version: str, device: dict[str, Any]
+) -> bool:
+    """Expose mode only for the exact tuple and confirmed values."""
+    ether_lighting = device.get("ether_lighting")
+    return (
+        compatibility_key_for_device(network_application_version, device)
+        == CURRENT_COMPATIBILITY
+        and isinstance(ether_lighting, dict)
+        and ether_lighting.get("mode") in {"network", "speed"}
+    )
+
+
+def _capability_status(read_supported: bool) -> ControlCapabilityStatus:
+    return ControlCapabilityStatus(
         read_supported=read_supported,
         write_supported=(
             CapabilityState.UNSUPPORTED
@@ -282,31 +302,62 @@ def brightness_capability_status(
     )
 
 
+def brightness_capability_status(
+    network_application_version: str, device: dict[str, Any]
+) -> ControlCapabilityStatus:
+    """Return independent read, write-evidence, and write-readiness states."""
+    read_supported = brightness_read_is_supported(
+        network_application_version, device
+    )
+    return _capability_status(read_supported)
+
+
+def behavior_capability_status(
+    network_application_version: str, device: dict[str, Any]
+) -> ControlCapabilityStatus:
+    """Return behavior read, write-evidence, and readiness states."""
+    return _capability_status(
+        behavior_read_is_supported(network_application_version, device)
+    )
+
+
+def mode_capability_status(
+    network_application_version: str, device: dict[str, Any]
+) -> ControlCapabilityStatus:
+    """Return mode read, write-evidence, and readiness states."""
+    return _capability_status(
+        mode_read_is_supported(network_application_version, device)
+    )
+
+
 def capabilities_for_runtime(
     network_application_version: str, devices: tuple[dict[str, Any], ...]
 ) -> tuple[CapabilityEvidence, ...]:
-    """Downgrade brightness unless at least one selected Device matches exactly."""
+    """Downgrade controls unless a selected Device matches exactly."""
     capabilities = list(current_capture_capabilities())
-    if any(
-        brightness_read_is_supported(network_application_version, device)
-        for device in devices
-    ):
-        return tuple(capabilities)
-    brightness_index = next(
-        index
-        for index, capability in enumerate(capabilities)
-        if capability.capability == "brightness"
-    )
-    confirmed = capabilities[brightness_index]
-    capabilities[brightness_index] = CapabilityEvidence(
-        capability="brightness",
-        state=CapabilityState.CANDIDATE,
-        evidence=EvidenceLevel.CAPTURED,
-        compatibility=ControllerCompatibilityKey(
-            "unifi_os", network_application_version or None, "unknown", "unknown"
-        ),
-        observed_json_path=confirmed.observed_json_path,
-        observed_values=(),
-        notes=("Runtime compatibility does not match the exact confirmed tuple.",),
-    )
+    support_checks = {
+        "brightness": brightness_read_is_supported,
+        "behavior": behavior_read_is_supported,
+        "mode": mode_read_is_supported,
+    }
+    for capability_name, support_check in support_checks.items():
+        if any(support_check(network_application_version, device) for device in devices):
+            continue
+        capability_index = next(
+            index
+            for index, capability in enumerate(capabilities)
+            if capability.capability == capability_name
+        )
+        confirmed = capabilities[capability_index]
+        capabilities[capability_index] = CapabilityEvidence(
+            capability=capability_name,
+            state=CapabilityState.CANDIDATE,
+            evidence=EvidenceLevel.CAPTURED,
+            compatibility=ControllerCompatibilityKey(
+                "unifi_os", network_application_version or None, "unknown", "unknown"
+            ),
+            observed_json_path=confirmed.observed_json_path,
+            observed_values=(),
+            notes=("Runtime compatibility does not match the exact confirmed tuple.",),
+        )
     return tuple(capabilities)

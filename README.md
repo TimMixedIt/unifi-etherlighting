@@ -1,6 +1,6 @@
 # UniFi Etherlighting
 
-HACS-fähige Home-Assistant-Custom-Integration zum verifizierten Lesen und Schreiben der Etherlighting-Helligkeit eines UniFi-Switches.
+HACS-fähige Home-Assistant-Custom-Integration zum verifizierten Steuern von Etherlighting-Helligkeit, Breathing und Speed/Network-Modus eines UniFi-Switches.
 
 ## Aktueller Freigabestatus
 
@@ -8,10 +8,12 @@ HACS-fähige Home-Assistant-Custom-Integration zum verifizierten Lesen und Schre
 - `brightness_write_supported = confirmed`
 - `brightness_write_ready = true`
 - der aktuelle Wert ist als `number`-Entität les- und schreibbar
+- Breathing ist als `switch`-Entität schaltbar
+- Speed/Network ist als `select`-Entität wählbar
 - jeder Write liest zuerst Version und vollständige Device-Konfiguration
 - jeder Write wird genau einmal gesendet und anschließend unabhängig gelesen
 
-Der bestätigte UI-Write enthielt `lcm_night_mode_enabled`, obwohl das Feld im echten `stat/device`-Read fehlt. Die Network-Oberfläche bewahrt einen vorhandenen booleschen Wert und initialisiert ihn bei Fehlen ausdrücklich mit `false`. Version 0.2.6 bildet exakt dieses live beobachtete UI-Verhalten nach; für andere Felder gibt es keine Defaults.
+Der bestätigte UI-Write enthielt `lcm_night_mode_enabled`, obwohl das Feld im echten `stat/device`-Read fehlt. Die Network-Oberfläche bewahrt einen vorhandenen booleschen Wert und initialisiert ihn bei Fehlen ausdrücklich mit `false`. Version 0.3.0 bildet exakt dieses live beobachtete UI-Verhalten nach; für andere Felder gibt es keine Defaults.
 
 ## Exakt getestete Kombination
 
@@ -25,12 +27,10 @@ Nur diese exakte Kombination erzeugt eine schreibbereite Brightness-Entität. An
 
 ## Weiterhin nicht steuerbar
 
-- Behavior/Breathing
-- Etherlighting-Modus
 - Aktivierungszustand
 - Netzwerkfarben
 - Port-Etherlighting oder andere Portsteuerung
-- `select`-, `switch`- oder `light`-Entitäten
+- `light`-Entitäten
 - Raw-API-Services
 
 Diese Capabilities bleiben `candidate`; Portsteuerung bleibt `unsupported`.
@@ -49,12 +49,14 @@ Unerwartete Einrichtungsfehler werden sicher einer der Phasen `session`, `login`
 
 ## Laufzeitverhalten
 
-Die Integration lädt ausschließlich:
+Die Integration lädt:
 
 - `sensor` für sicheren Status, Version und Capability-Diagnostik;
-- `number` für `Etherlighting brightness` pro ausgewähltem, exakt kompatiblem Switch.
+- `number` für `Etherlighting brightness`;
+- `switch` für den Breathing-Modus;
+- `select` für `network` oder `speed`.
 
-Polling liest die Network-Version und den bestätigten Device-Sammelpfad. Vor einem Write prüft der Brightness-Service erneut die exakte Versionskombination, liest den aktuellen Device-Zustand, baut den vollständigen UI-Payload und verifiziert den Zielwert durch einen unabhängigen Read.
+Polling liest die Network-Version und den bestätigten Device-Sammelpfad. Vor einem Write prüft der Steuerdienst erneut die exakte Versionskombination, liest den aktuellen Device-Zustand, baut den vollständigen UI-Payload mit exakt einer fachlichen Änderung und verifiziert den Zielwert durch einen unabhängigen Read.
 
 Ein Diagnosesensor meldet `write_capability=ready`. Bei einem unbestimmten Ergebnis wird nicht automatisch wiederholt; weitere Writes für das betroffene Gerät werden bis zur Prüfung blockiert.
 
@@ -66,6 +68,7 @@ Zugangsdaten, Hosts, Site-Slugs, Device-IDs, Cookie-/Session-/CSRF-Werte, Payloa
 
 ```bash
 python3 tools/validate_capture_sequence.py captures/brightness
+python3 tools/validate_control_capture.py captures/controls/live_validation.json
 uv run --with-requirements requirements_test.txt pytest -q
 uv run --with 'ruff>=0.11.0' ruff check .
 ```

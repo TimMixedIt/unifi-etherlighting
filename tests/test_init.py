@@ -53,6 +53,8 @@ async def test_setup_and_unload_never_write_controller(hass) -> None:
         assert write.await_count == 0
         entries = er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
         assert len([item for item in entries if item.domain == "number"]) == 1
-        assert not any(item.domain in {"select", "switch", "light"} for item in entries)
+        assert len([item for item in entries if item.domain == "select"]) == 1
+        assert len([item for item in entries if item.domain == "switch"]) == 1
+        assert not any(item.domain == "light" for item in entries)
         assert await hass.config_entries.async_unload(entry.entry_id)
         assert write.await_count == 0

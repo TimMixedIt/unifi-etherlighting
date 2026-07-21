@@ -1,0 +1,118 @@
+{
+  "session_id": "etherlighting_controls_capture_001",
+  "captured_at": "2026-07-21T23:55:00+02:00",
+  "capture_source": "unifi_network_web_ui",
+  "version_context": {
+    "controller_type": "unifi_os",
+    "network_application_version": "10.5.62",
+    "device_type": "usw",
+    "device_model": "USWED72",
+    "device_firmware": "7.4.1.16850"
+  },
+  "read": {
+    "method": "GET",
+    "path": "/proxy/network/api/s/site_001/stat/device",
+    "header_names": [],
+    "status": 200
+  },
+  "write": {
+    "method": "PUT",
+    "path": "/proxy/network/api/s/site_001/rest/device/device_001",
+    "header_names": [
+      "Content-Type",
+      "X-CSRF-Token"
+    ]
+  },
+  "sequences": {
+    "behavior": {
+      "changed_path": "ether_lighting.behavior",
+      "before": {
+        "mode": "network",
+        "brightness": 30,
+        "behavior": "steady",
+        "led_mode": "etherlighting"
+      },
+      "write_forward": {
+        "status": 200,
+        "meta_rc": "ok",
+        "ether_lighting": {
+          "mode": "network",
+          "brightness": 30,
+          "behavior": "breath",
+          "led_mode": "etherlighting"
+        }
+      },
+      "read_after": {
+        "mode": "network",
+        "brightness": 30,
+        "behavior": "breath",
+        "led_mode": "etherlighting"
+      },
+      "write_reverse": {
+        "status": 200,
+        "meta_rc": "ok",
+        "ether_lighting": {
+          "mode": "network",
+          "brightness": 30,
+          "behavior": "steady",
+          "led_mode": "etherlighting"
+        }
+      },
+      "final": {
+        "mode": "network",
+        "brightness": 30,
+        "behavior": "steady",
+        "led_mode": "etherlighting"
+      }
+    },
+    "mode": {
+      "changed_path": "ether_lighting.mode",
+      "before": {
+        "mode": "network",
+        "brightness": 30,
+        "behavior": "steady",
+        "led_mode": "etherlighting"
+      },
+      "write_forward": {
+        "status": 200,
+        "meta_rc": "ok",
+        "ether_lighting": {
+          "mode": "speed",
+          "brightness": 30,
+          "behavior": "steady",
+          "led_mode": "etherlighting"
+        }
+      },
+      "read_after": {
+        "mode": "speed",
+        "brightness": 30,
+        "behavior": "steady",
+        "led_mode": "etherlighting"
+      },
+      "write_reverse": {
+        "status": 200,
+        "meta_rc": "ok",
+        "ether_lighting": {
+          "mode": "network",
+          "brightness": 30,
+          "behavior": "steady",
+          "led_mode": "etherlighting"
+        }
+      },
+      "final": {
+        "mode": "network",
+        "brightness": 30,
+        "behavior": "steady",
+        "led_mode": "etherlighting"
+      }
+    }
+  },
+  "payload_note": "Only the non-sensitive control projection is retained here; the complete sanitized UI payload shape is already captured by the brightness validation.",
+  "safety": {
+    "ui_triggered_writes_only": true,
+    "manually_constructed_requests": false,
+    "colors_changed": false,
+    "sensitive_values_retained": false,
+    "final_state_restored": true
+  }
+}

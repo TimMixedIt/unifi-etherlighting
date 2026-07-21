@@ -36,9 +36,9 @@
       "timeout": "Zeitüberschreitung beim Controller.",
       "site_not_found": "Die UniFi Site konnte nicht gelesen werden.",
       "no_devices": "Für diese UniFi Site wurden keine Geräte geliefert.",
-      "no_compatible_devices": "Kein Switch entspricht der exakt bestätigten Brightness-Kombination.",
-      "unsupported_network_version": "Diese Network-Application-Version ist nicht für Brightness-Schreibzugriffe bestätigt.",
-      "unsupported_firmware": "Die erkannte Switch-Firmware ist nicht für Brightness-Schreibzugriffe bestätigt.",
+      "no_compatible_devices": "Kein Switch entspricht der exakt bestätigten Etherlighting-Steuerkombination.",
+      "unsupported_network_version": "Diese Network-Application-Version ist nicht für Etherlighting-Schreibzugriffe bestätigt.",
+      "unsupported_firmware": "Die erkannte Switch-Firmware ist nicht für Etherlighting-Schreibzugriffe bestätigt.",
       "unknown": "Ein unerwarteter Fehler ist aufgetreten.",
       "invalid_site": "Die UniFi Site darf nur Buchstaben, Zahlen, Unterstriche und Bindestriche enthalten."
     },
@@ -66,6 +66,11 @@
         "name": "Etherlighting-Helligkeit"
       }
     },
+    "select": {
+      "etherlighting_mode": {
+        "name": "Etherlighting-Modus"
+      }
+    },
     "sensor": {
       "integration_status": {
         "name": "Integrationsstatus"
@@ -74,7 +79,7 @@
         "name": "Network-Application-Version"
       },
       "brightness_write_capability": {
-        "name": "Brightness-Schreibbereitschaft"
+        "name": "Etherlighting-Schreibbereitschaft"
       },
       "confirmed_capabilities": {
         "name": "Bestätigte Fähigkeiten"
@@ -85,6 +90,11 @@
       "unsupported_capabilities": {
         "name": "Nicht unterstützte Fähigkeiten"
       }
+    },
+    "switch": {
+      "breathing_mode": {
+        "name": "Breathing-Modus"
+      }
     }
   },
   "issues": {
@@ -94,18 +104,18 @@
     },
     "network_version_unconfirmed": {
       "title": "Network-Application-Version nicht bestätigt",
-      "description": "Brightness-Schreibzugriffe sind deaktiviert, weil die Laufzeitversion nicht exakt der validierten Version entspricht."
+      "description": "Etherlighting-Schreibzugriffe sind deaktiviert, weil die Laufzeitversion nicht exakt der validierten Version entspricht."
     },
     "unsupported_combination": {
       "title": "Switch-Kombination nicht unterstützt",
       "description": "Controller, Modell, Firmware oder Etherlighting-Schema liegen außerhalb der exakt bestätigten Kombination."
     },
     "etherlighting_field_missing": {
-      "title": "Etherlighting-Brightness-Feld fehlt",
-      "description": "Der ausgewählte Switch liefert das bestätigte Etherlighting-Brightness-Feld nicht mehr."
+      "title": "Etherlighting-Steuerfeld fehlt",
+      "description": "Der ausgewählte Switch liefert die bestätigten Etherlighting-Steuerfelder nicht mehr."
     },
     "write_unverified": {
-      "title": "Brightness-Schreibzugriff nicht verifiziert",
+      "title": "Etherlighting-Schreibzugriff nicht verifiziert",
       "description": "Der Controllerzustand lieferte keine sichere Read-after-Write-Bestätigung."
     },
     "api_schema_mismatch": {
@@ -113,12 +123,12 @@
       "description": "Eine bestätigte Antwort entspricht nicht mehr der validierten Response-Struktur."
     },
     "write_blocked": {
-      "title": "Brightness-Schreibzugriffe vorübergehend gesperrt",
+      "title": "Etherlighting-Schreibzugriffe vorübergehend gesperrt",
       "description": "Ein unbestimmtes Schreibergebnis sperrt weitere Zugriffe für den betroffenen Switch bis zur manuellen Prüfung."
     },
     "write_configuration_incomplete": {
-      "title": "Etherlighting-Helligkeit ist schreibgeschützt",
-      "description": "Die Etherlighting-Helligkeit kann gelesen werden. Schreiben ist gesperrt, weil die vollständige, von der UniFi-Oberfläche verwendete Gerätekonfiguration noch nicht sicher ermittelt wurde."
+      "title": "Etherlighting-Steuerung ist schreibgeschützt",
+      "description": "Der Etherlighting-Zustand kann gelesen werden. Schreiben ist gesperrt, weil die vollständige, von der UniFi-Oberfläche verwendete Gerätekonfiguration noch nicht sicher ermittelt wurde."
     }
   }
 }

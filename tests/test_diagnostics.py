@@ -12,6 +12,12 @@ def test_diagnostics_allowlist_removes_credentials_hosts_and_ids() -> None:
             "brightness_read_supported": True,
             "brightness_write_supported": "confirmed",
             "brightness_write_ready": True,
+            "behavior_read_supported": True,
+            "behavior_write_supported": "confirmed",
+            "behavior_write_ready": True,
+            "mode_read_supported": True,
+            "mode_write_supported": "confirmed",
+            "mode_write_ready": True,
             "host": "controller.invalid",
             "username": "user",
             "password": "secret",
@@ -36,6 +42,12 @@ def test_diagnostics_allowlist_removes_credentials_hosts_and_ids() -> None:
     assert result["brightness_read_supported"] is True
     assert result["brightness_write_supported"] == "confirmed"
     assert result["brightness_write_ready"] is True
+    assert result["behavior_read_supported"] is True
+    assert result["behavior_write_supported"] == "confirmed"
+    assert result["behavior_write_ready"] is True
+    assert result["mode_read_supported"] is True
+    assert result["mode_write_supported"] == "confirmed"
+    assert result["mode_write_ready"] is True
     assert result["options"] == {"verify_ssl": True}
     assert result["capabilities"] == [
         {"capability": "brightness", "state": "confirmed", "evidence": "write_accepted"}

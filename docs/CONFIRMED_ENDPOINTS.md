@@ -6,9 +6,9 @@
 | Lokaler Logout | `POST` | `/api/auth/logout` | ja, Session-Abbau |
 | Network-Version | `GET` | `/proxy/network/v2/api/info` | ja, read-only |
 | Devices lesen | `GET` | `/proxy/network/api/s/{site}/stat/device` | ja, read-only |
-| Device schreiben | `PUT` | `/proxy/network/api/s/{site}/rest/device/{device}` | nur verifizierter Brightness-Service |
+| Device schreiben | `PUT` | `/proxy/network/api/s/{site}/rest/device/{device}` | verifizierte Brightness-, Behavior- und Mode-Steuerung |
 
-Der Versionswert liegt an `$.system.version`. Der Device-Read verlangt `$.meta.rc = ok` und ein Array an `$.data`. Der Write verlangt HTTP-Erfolg, `$.meta.rc = ok`, den erwarteten Responsewert und einen unabhängigen Read-after-Write.
+Der Versionswert liegt an `$.system.version`. Der Device-Read verlangt `$.meta.rc = ok` und ein Array an `$.data`. Jeder Write verlangt HTTP-Erfolg, `$.meta.rc = ok`, den erwarteten Responsewert und einen unabhängigen Read-after-Write. Produktive Änderungen sind auf genau eines der Felder `brightness`, `behavior` oder `mode` begrenzt.
 
 Es gibt keine Fallback-, Legacy-, Site-Discovery- oder Detail-Device-Route. Ein einzelnes Device wird aus der bestätigten `stat/device`-Antwort eindeutig über seine vorhandene ID gewählt.
 
