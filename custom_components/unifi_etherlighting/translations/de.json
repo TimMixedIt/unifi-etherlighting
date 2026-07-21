@@ -32,7 +32,8 @@
       "no_compatible_devices": "Kein Switch entspricht der exakt bestätigten Brightness-Kombination.",
       "unsupported_network_version": "Diese Network-Application-Version ist nicht für Brightness-Schreibzugriffe bestätigt.",
       "unsupported_firmware": "Die erkannte Switch-Firmware ist nicht für Brightness-Schreibzugriffe bestätigt.",
-      "unknown": "Ein unerwarteter Fehler ist aufgetreten."
+      "unknown": "Ein unerwarteter Fehler ist aufgetreten.",
+      "invalid_site": "Die UniFi Site darf nur Buchstaben, Zahlen, Unterstriche und Bindestriche enthalten."
     },
     "abort": {
       "already_configured": "Dieser Controller ist bereits eingerichtet.",
@@ -54,14 +55,26 @@
   },
   "entity": {
     "number": {
-      "etherlighting_brightness": {"name": "Etherlighting-Helligkeit"}
+      "etherlighting_brightness": {
+        "name": "Etherlighting-Helligkeit"
+      }
     },
     "sensor": {
-      "integration_status": {"name": "Integrationsstatus"},
-      "network_application_version": {"name": "Network-Application-Version"},
-      "confirmed_capabilities": {"name": "Bestätigte Fähigkeiten"},
-      "candidate_capabilities": {"name": "Kandidatenfähigkeiten"},
-      "unsupported_capabilities": {"name": "Nicht unterstützte Fähigkeiten"}
+      "integration_status": {
+        "name": "Integrationsstatus"
+      },
+      "network_application_version": {
+        "name": "Network-Application-Version"
+      },
+      "confirmed_capabilities": {
+        "name": "Bestätigte Fähigkeiten"
+      },
+      "candidate_capabilities": {
+        "name": "Kandidatenfähigkeiten"
+      },
+      "unsupported_capabilities": {
+        "name": "Nicht unterstützte Fähigkeiten"
+      }
     }
   },
   "issues": {

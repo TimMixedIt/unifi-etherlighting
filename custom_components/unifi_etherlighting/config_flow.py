@@ -57,7 +57,7 @@ CONNECTION_SCHEMA = vol.Schema(
         vol.Required(CONF_VERIFY_SSL, default=True): bool,
         vol.Required(CONF_USERNAME): str,
         vol.Required(CONF_PASSWORD): str,
-        vol.Required(CONF_SITE): vol.All(str, vol.Match(_SITE_SLUG.pattern)),
+        vol.Required(CONF_SITE): selector.TextSelector(),
     }
 )
 
@@ -135,6 +135,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 validated = dict(CONNECTION_SCHEMA(user_input))
+                if not _SITE_SLUG.fullmatch(validated[CONF_SITE]):
+                    errors[CONF_SITE] = "invalid_site"
+                    return self.async_show_form(
+                        step_id="user",
+                        data_schema=CONNECTION_SCHEMA,
+                        errors=errors,
+                    )
                 compatible = await self._async_validate_connection(validated)
             except vol.Invalid as err:
                 reason = str(err)

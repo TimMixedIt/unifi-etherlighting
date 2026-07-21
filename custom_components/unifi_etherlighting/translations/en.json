@@ -32,7 +32,8 @@
       "no_compatible_devices": "No switch matches the exactly confirmed Brightness combination.",
       "unsupported_network_version": "This Network Application version is not confirmed for Brightness writes.",
       "unsupported_firmware": "The detected switch firmware is not confirmed for Brightness writes.",
-      "unknown": "An unexpected error occurred."
+      "unknown": "An unexpected error occurred.",
+      "invalid_site": "The UniFi Site may only contain letters, numbers, underscores, and hyphens."
     },
     "abort": {
       "already_configured": "This controller is already configured.",
@@ -54,14 +55,26 @@
   },
   "entity": {
     "number": {
-      "etherlighting_brightness": {"name": "Etherlighting brightness"}
+      "etherlighting_brightness": {
+        "name": "Etherlighting brightness"
+      }
     },
     "sensor": {
-      "integration_status": {"name": "Integration status"},
-      "network_application_version": {"name": "Network Application version"},
-      "confirmed_capabilities": {"name": "Confirmed capabilities"},
-      "candidate_capabilities": {"name": "Candidate capabilities"},
-      "unsupported_capabilities": {"name": "Unsupported capabilities"}
+      "integration_status": {
+        "name": "Integration status"
+      },
+      "network_application_version": {
+        "name": "Network Application version"
+      },
+      "confirmed_capabilities": {
+        "name": "Confirmed capabilities"
+      },
+      "candidate_capabilities": {
+        "name": "Candidate capabilities"
+      },
+      "unsupported_capabilities": {
+        "name": "Unsupported capabilities"
+      }
     }
   },
   "issues": {
