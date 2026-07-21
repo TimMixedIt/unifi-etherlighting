@@ -13,7 +13,7 @@ HACS-fähige Home-Assistant-Custom-Integration zum verifizierten Steuern von Eth
 - jeder Write liest zuerst Version und vollständige Device-Konfiguration
 - jeder Write wird genau einmal gesendet und anschließend unabhängig gelesen
 
-Der bestätigte UI-Write enthielt `lcm_night_mode_enabled`, obwohl das Feld im echten `stat/device`-Read fehlt. Die Network-Oberfläche bewahrt einen vorhandenen booleschen Wert und initialisiert ihn bei Fehlen ausdrücklich mit `false`. Version 0.3.0 bildet exakt dieses live beobachtete UI-Verhalten nach; für andere Felder gibt es keine Defaults.
+Der bestätigte UI-Write enthielt `lcm_night_mode_enabled`, obwohl das Feld im echten `stat/device`-Read fehlt. Die Network-Oberfläche bewahrt einen vorhandenen booleschen Wert und initialisiert ihn bei Fehlen ausdrücklich mit `false`. Version 0.3.1 bildet exakt dieses live beobachtete UI-Verhalten nach; für andere Felder gibt es keine Defaults.
 
 ## Exakt getestete Kombination
 

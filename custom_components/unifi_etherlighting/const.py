@@ -6,7 +6,7 @@ from datetime import timedelta
 
 DOMAIN = "unifi_etherlighting"
 NAME = "UniFi Etherlighting"
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 CONF_HOST = "host"
 CONF_PORT = "port"

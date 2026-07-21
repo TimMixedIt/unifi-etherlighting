@@ -1,6 +1,6 @@
 # Verifiziertes Etherlighting-Read-modify-write
 
-> **Freigabe 0.3.0:** Dieser Ablauf ist ausschließlich für die exakt validierte Versionskombination produktiv erreichbar. Das im Device-Read fehlende Feld `lcm_night_mode_enabled` folgt der live bestätigten UI-Initialisierung: vorhandenen booleschen Wert erhalten, bei Abwesenheit `false`, bei jedem anderen Typ sicher abbrechen.
+> **Freigabe 0.3.1:** Dieser Ablauf ist ausschließlich für die exakt validierte Versionskombination produktiv erreichbar. Das im Device-Read fehlende Feld `lcm_night_mode_enabled` folgt der live bestätigten UI-Initialisierung: vorhandenen booleschen Wert erhalten, bei Abwesenheit `false`, bei jedem anderen Typ sicher abbrechen.
 
 Der Ablauf ändert pro Aktion fachlich genau eines der bestätigten Felder `ether_lighting.brightness`, `ether_lighting.behavior` oder `ether_lighting.mode`:
 
