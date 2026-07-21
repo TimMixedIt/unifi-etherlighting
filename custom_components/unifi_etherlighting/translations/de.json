@@ -16,7 +16,7 @@
       },
       "devices": {
         "title": "Etherlighting-Switches auswählen",
-        "description": "Nur Switches mit exakt bestätigter Network-, Modell-, Firmware- und Brightness-Struktur stehen zur Auswahl.",
+        "description": "Nur Switches mit exakt bestätigter Lesestruktur stehen zur Auswahl. Brightness-Schreibzugriffe sind derzeit gesperrt.",
         "data": {
           "device_ids": "Kompatible Switches"
         }
@@ -63,7 +63,7 @@
   "entity": {
     "number": {
       "etherlighting_brightness": {
-        "name": "Etherlighting-Helligkeit"
+        "name": "Etherlighting-Helligkeit (Schreiben gesperrt)"
       }
     },
     "sensor": {
@@ -72,6 +72,9 @@
       },
       "network_application_version": {
         "name": "Network-Application-Version"
+      },
+      "brightness_write_capability": {
+        "name": "Brightness-Schreibfähigkeit"
       },
       "confirmed_capabilities": {
         "name": "Bestätigte Fähigkeiten"
@@ -112,6 +115,10 @@
     "write_blocked": {
       "title": "Brightness-Schreibzugriffe vorübergehend gesperrt",
       "description": "Ein unbestimmtes Schreibergebnis sperrt weitere Zugriffe für den betroffenen Switch bis zur manuellen Prüfung."
+    },
+    "write_configuration_incomplete": {
+      "title": "Etherlighting-Helligkeit ist schreibgeschützt",
+      "description": "Die Etherlighting-Helligkeit kann gelesen werden. Schreiben ist gesperrt, weil die vollständige, von der UniFi-Oberfläche verwendete Gerätekonfiguration noch nicht sicher ermittelt wurde."
     }
   }
 }

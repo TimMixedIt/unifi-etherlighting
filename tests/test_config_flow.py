@@ -127,7 +127,11 @@ async def test_successful_validation_is_not_masked_by_logout_failure(
     auth = MagicMock()
     auth.authenticated = True
     auth.async_login = AsyncMock()
-    auth.async_logout = AsyncMock(side_effect=Exception("synthetic cleanup failure"))
+    auth.async_logout = AsyncMock(
+        side_effect=UniFiAuthenticationError(
+            "Controller logout failed (HTTP 403 sensitive diagnostic marker)"
+        )
+    )
     auth.async_get_csrf_token = AsyncMock(return_value=None)
 
     controller = MagicMock()
@@ -164,7 +168,8 @@ async def test_successful_validation_is_not_masked_by_logout_failure(
     auth.async_invalidate.assert_called_once()
     assert "stage=logout" in caplog.text
     assert "category=validation_logout" in caplog.text
-    assert "synthetic cleanup failure" not in caplog.text
+    assert "http_status=403" in caplog.text
+    assert "sensitive diagnostic marker" not in caplog.text
 
 
 async def test_failed_version_read_stops_before_device_read_or_write(hass) -> None:
@@ -276,7 +281,7 @@ async def test_unexpected_validation_error_preserves_stage(hass, stage) -> None:
             return_value=devices,
         ),
         patch(
-            "custom_components.unifi_etherlighting.config_flow.brightness_is_confirmed",
+            "custom_components.unifi_etherlighting.config_flow.brightness_read_is_supported",
             compatibility,
         ),
     ):

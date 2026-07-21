@@ -6,7 +6,7 @@ from datetime import timedelta
 
 DOMAIN = "unifi_etherlighting"
 NAME = "UniFi Etherlighting"
-VERSION = "0.2.0"
+VERSION = "0.2.5"
 
 CONF_HOST = "host"
 CONF_PORT = "port"
@@ -31,3 +31,12 @@ BRIGHTNESS_MINIMUM = 1
 BRIGHTNESS_MAXIMUM = 100
 BRIGHTNESS_STEP = 1
 BRIGHTNESS_UNIT = "%"
+
+WRITE_CAPABILITY_ENABLED = False
+WRITE_CAPABILITY_STATE = "blocked"
+WRITE_BLOCK_REASON = "confirmed_write_configuration_incomplete"
+MISSING_CONFIRMED_WRITE_FIELDS = ("lcm_night_mode_enabled",)
+WRITE_DISABLED_MESSAGE = (
+    "Etherlighting brightness writes are temporarily disabled because the "
+    "complete confirmed write configuration is unavailable."
+)

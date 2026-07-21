@@ -50,6 +50,9 @@ async def async_setup_entry(
             EtherlightingCapabilitySensor(
                 runtime.coordinator, runtime.controller_unique_id, "unsupported"
             ),
+            EtherlightingWriteCapabilitySensor(
+                runtime.coordinator, runtime.controller_unique_id
+            ),
         ]
     )
 
@@ -80,6 +83,44 @@ class EtherlightingVersionSensor(EtherlightingDiagnosticEntity, SensorEntity):
     @property
     def native_value(self) -> str:
         return self.coordinator.data.network_application_version or "unknown"
+
+
+class EtherlightingWriteCapabilitySensor(EtherlightingDiagnosticEntity, SensorEntity):
+    """Expose only the bounded central write-lock state and reason."""
+
+    _attr_translation_key = "brightness_write_capability"
+
+    def __init__(self, coordinator: Any, controller_unique_id: str) -> None:
+        super().__init__(coordinator, controller_unique_id)
+        self._attr_unique_id = f"{controller_unique_id}_brightness_write_capability"
+
+    @property
+    def native_value(self) -> str:
+        return self.coordinator.data.write_capability
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        devices = self.coordinator.data.devices
+        return {
+            "brightness_read_supported": any(
+                device.brightness_read_supported for device in devices
+            ),
+            "brightness_write_supported": (
+                "candidate"
+                if any(
+                    device.brightness_write_supported.value == "candidate"
+                    for device in devices
+                )
+                else "unsupported"
+            ),
+            "brightness_write_ready": any(
+                device.brightness_write_ready for device in devices
+            ),
+            "write_block_reason": self.coordinator.data.write_block_reason,
+            "missing_confirmed_fields": list(
+                self.coordinator.data.missing_confirmed_fields
+            ),
+        }
 
 
 class EtherlightingCapabilitySensor(EtherlightingDiagnosticEntity, SensorEntity):

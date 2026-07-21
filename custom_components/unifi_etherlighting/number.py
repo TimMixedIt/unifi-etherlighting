@@ -19,6 +19,11 @@ from .const import (
     BRIGHTNESS_UNIT,
     CONF_SITE,
     DOMAIN,
+    MISSING_CONFIRMED_WRITE_FIELDS,
+    WRITE_BLOCK_REASON,
+    WRITE_CAPABILITY_ENABLED,
+    WRITE_CAPABILITY_STATE,
+    WRITE_DISABLED_MESSAGE,
 )
 from .repairs import async_sync_repairs
 
@@ -30,7 +35,7 @@ async def async_setup_entry(
     async_add_entities(
         EtherlightingBrightnessNumber(runtime, entry, device.identifier)
         for device in runtime.coordinator.data.devices
-        if device.brightness_confirmed
+        if device.brightness_read_supported
     )
 
 
@@ -64,9 +69,27 @@ class EtherlightingBrightnessNumber(CoordinatorEntity, NumberEntity):
         return bool(
             self.coordinator.last_update_success
             and device is not None
-            and device.brightness_confirmed
+            and device.brightness_read_supported
             and device.brightness is not None
         )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        device = self.coordinator.device(self._device_id)
+        return {
+            "brightness_read_supported": bool(
+                device and device.brightness_read_supported
+            ),
+            "brightness_write_supported": (
+                device.brightness_write_supported.value if device else "unsupported"
+            ),
+            "brightness_write_ready": bool(
+                device and device.brightness_write_ready
+            ),
+            "write_capability": WRITE_CAPABILITY_STATE,
+            "write_block_reason": WRITE_BLOCK_REASON,
+            "missing_confirmed_fields": list(MISSING_CONFIRMED_WRITE_FIELDS),
+        }
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -83,6 +106,8 @@ class EtherlightingBrightnessNumber(CoordinatorEntity, NumberEntity):
         )
 
     async def async_set_native_value(self, value: float) -> None:
+        if not WRITE_CAPABILITY_ENABLED:
+            raise HomeAssistantError(WRITE_DISABLED_MESSAGE)
         target = int(value)
         if float(target) != float(value):
             raise HomeAssistantError("Brightness must use the confirmed integer step")

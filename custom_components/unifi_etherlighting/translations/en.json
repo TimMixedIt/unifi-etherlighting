@@ -16,7 +16,7 @@
       },
       "devices": {
         "title": "Select Etherlighting switches",
-        "description": "Only switches matching the exactly validated Network, model, firmware, and Brightness schema are available.",
+        "description": "Only switches with the exactly validated read schema are available. Brightness writes are currently blocked.",
         "data": {
           "device_ids": "Compatible switches"
         }
@@ -63,7 +63,7 @@
   "entity": {
     "number": {
       "etherlighting_brightness": {
-        "name": "Etherlighting brightness"
+        "name": "Etherlighting brightness (writes blocked)"
       }
     },
     "sensor": {
@@ -72,6 +72,9 @@
       },
       "network_application_version": {
         "name": "Network Application version"
+      },
+      "brightness_write_capability": {
+        "name": "Brightness write capability"
       },
       "confirmed_capabilities": {
         "name": "Confirmed capabilities"
@@ -112,6 +115,10 @@
     "write_blocked": {
       "title": "Brightness writes temporarily blocked",
       "description": "An indeterminate write result blocked further writes for the affected switch until operator review."
+    },
+    "write_configuration_incomplete": {
+      "title": "Etherlighting brightness is read-only",
+      "description": "Etherlighting brightness can be read. Writes are blocked because the complete device configuration used by the UniFi interface has not yet been safely confirmed."
     }
   }
 }

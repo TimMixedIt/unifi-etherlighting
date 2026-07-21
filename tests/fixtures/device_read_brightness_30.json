@@ -24,7 +24,6 @@
   "lcm_brightness": 80,
   "lcm_brightness_override": false,
   "lcm_night_mode_begins": "22:00",
-  "lcm_night_mode_enabled": false,
   "lcm_night_mode_ends": "08:00",
   "lcm_orientation_override": 0,
   "mgmt_network_id": "network_001",

@@ -15,8 +15,9 @@ from .api.adapters.unifi_os_controller import UniFiOsControllerAdapter
 from .api.adapters.unifi_os_device import UniFiOsDeviceAdapter
 from .api.errors import UniFiEtherlightingError
 from .api.models import (
+    CapabilityState,
     CapabilityEvidence,
-    brightness_is_confirmed,
+    brightness_capability_status,
     capabilities_for_runtime,
 )
 from .brightness import BrightnessService
@@ -28,6 +29,9 @@ from .const import (
     CONTROLLER_STATUS_UNSUPPORTED,
     DEFAULT_POLL_INTERVAL_SECONDS,
     DOMAIN,
+    MISSING_CONFIRMED_WRITE_FIELDS,
+    WRITE_BLOCK_REASON,
+    WRITE_CAPABILITY_STATE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,7 +43,9 @@ class DiagnosticDevice:
     model: str
     firmware: str
     brightness: int | None
-    brightness_confirmed: bool
+    brightness_read_supported: bool
+    brightness_write_supported: CapabilityState
+    brightness_write_ready: bool
     write_blocked: bool
 
 
@@ -53,6 +59,9 @@ class EtherlightingCoordinatorData:
     last_successful_update: datetime | None
     last_verified_write: datetime | None
     last_error: str | None
+    write_capability: str
+    write_block_reason: str
+    missing_confirmed_fields: tuple[str, ...]
 
 
 def _device_brightness(device: dict[str, Any]) -> int | None:
@@ -105,23 +114,29 @@ class EtherlightingDataUpdateCoordinator(
         selected = tuple(
             device for device in all_devices if device.get("_id") in selected_ids
         )
-        diagnostic_devices = tuple(
-            DiagnosticDevice(
-                identifier=str(device["_id"]),
-                model=str(device.get("model", "unknown")),
-                firmware=str(device.get("version", "unknown")),
-                brightness=_device_brightness(device),
-                brightness_confirmed=brightness_is_confirmed(network_version, device),
-                write_blocked=self._brightness_service.is_write_blocked(
-                    str(device["_id"])
-                ),
+        diagnostic_devices_list: list[DiagnosticDevice] = []
+        for device in selected:
+            if not isinstance(device.get("_id"), str):
+                continue
+            capability = brightness_capability_status(network_version, device)
+            diagnostic_devices_list.append(
+                DiagnosticDevice(
+                    identifier=str(device["_id"]),
+                    model=str(device.get("model", "unknown")),
+                    firmware=str(device.get("version", "unknown")),
+                    brightness=_device_brightness(device),
+                    brightness_read_supported=capability.read_supported,
+                    brightness_write_supported=capability.write_supported,
+                    brightness_write_ready=capability.write_ready,
+                    write_blocked=self._brightness_service.is_write_blocked(
+                        str(device["_id"])
+                    ),
+                )
             )
-            for device in selected
-            if isinstance(device.get("_id"), str)
-        )
+        diagnostic_devices = tuple(diagnostic_devices_list)
         status = (
             CONTROLLER_STATUS_ONLINE
-            if any(device.brightness_confirmed for device in diagnostic_devices)
+            if any(device.brightness_read_supported for device in diagnostic_devices)
             else CONTROLLER_STATUS_UNSUPPORTED
         )
         return EtherlightingCoordinatorData(
@@ -133,6 +148,9 @@ class EtherlightingDataUpdateCoordinator(
             last_successful_update=datetime.now(UTC),
             last_verified_write=self._brightness_service.last_verified_write,
             last_error=self._brightness_service.last_error_code,
+            write_capability=WRITE_CAPABILITY_STATE,
+            write_block_reason=WRITE_BLOCK_REASON,
+            missing_confirmed_fields=MISSING_CONFIRMED_WRITE_FIELDS,
         )
 
     def device(self, device_id: str) -> DiagnosticDevice | None:

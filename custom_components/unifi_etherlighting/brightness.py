@@ -22,9 +22,15 @@ from .api.errors import (
     UnsupportedCompatibilityError,
     VerificationError,
     WriteBlockedError,
+    WriteCapabilityUnavailableError,
 )
-from .api.models import brightness_is_confirmed
-from .const import BRIGHTNESS_MAXIMUM, BRIGHTNESS_MINIMUM
+from .api.models import brightness_read_is_supported
+from .const import (
+    BRIGHTNESS_MAXIMUM,
+    BRIGHTNESS_MINIMUM,
+    WRITE_BLOCK_REASON,
+    WRITE_CAPABILITY_ENABLED,
+)
 
 _CONFIG_NETWORK_FIELDS = (
     "type",
@@ -218,6 +224,9 @@ class BrightnessService:
     async def async_set_brightness(
         self, site: str, device_id: str, brightness: int
     ) -> VerifiedBrightnessResult:
+        if not WRITE_CAPABILITY_ENABLED:
+            self.last_error_code = WRITE_BLOCK_REASON
+            raise WriteCapabilityUnavailableError(WRITE_BLOCK_REASON)
         if device_id in self._blocked_devices:
             raise WriteBlockedError(
                 "Brightness writes are blocked pending operator review"
@@ -232,7 +241,7 @@ class BrightnessService:
             await self._controller.async_read_network_application_version()
         )
         current = await self._devices.async_read_device(site, device_id)
-        if not brightness_is_confirmed(network_version, current):
+        if not brightness_read_is_supported(network_version, current):
             raise UnsupportedCompatibilityError(
                 "Brightness is not confirmed for this exact runtime compatibility tuple"
             )

@@ -11,6 +11,7 @@ import pytest
 from custom_components.unifi_etherlighting.api import client as client_module
 from custom_components.unifi_etherlighting.api.adapters import (
     unifi_os_controller as controller_module,
+    unifi_os_device as device_module,
 )
 from custom_components.unifi_etherlighting.api.adapters.unifi_os_device import (
     UniFiOsDeviceAdapter,
@@ -26,6 +27,7 @@ from custom_components.unifi_etherlighting.api.errors import (
     UniFiResponseError,
     UniFiVersionSchemaError,
     VersionSchemaMismatchReason,
+    WriteCapabilityUnavailableError,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -101,6 +103,12 @@ def make_adapter(
     session = FakeSession(FakeResponse(status, response))
     client = UniFiApiClient(session, "https://controller.invalid", csrf_token)
     return UniFiOsDeviceAdapter(client), session
+
+
+@pytest.fixture
+def enable_device_writes(monkeypatch):
+    """Exercise the dormant validated adapter contract in isolated unit tests."""
+    monkeypatch.setattr(device_module, "WRITE_CAPABILITY_ENABLED", True)
 
 
 def test_confirmed_proxy_path_uses_put_and_quotes_parameters() -> None:
@@ -229,7 +237,7 @@ def test_device_schema_failures_fail_closed() -> None:
             asyncio.run(adapter.async_read_devices("site_001"))
 
 
-def test_write_accepts_http_200_and_meta_ok() -> None:
+def test_write_accepts_http_200_and_meta_ok(enable_device_writes) -> None:
     response = fixture("device_put_response_brightness_35.json")
     adapter, session = make_adapter(response)
     payload = fixture("device_put_brightness_35.json")
@@ -246,7 +254,7 @@ def test_write_accepts_http_200_and_meta_ok() -> None:
     assert session.calls[0]["json"] == payload
 
 
-def test_http_and_envelope_failures_are_controlled() -> None:
+def test_http_and_envelope_failures_are_controlled(enable_device_writes) -> None:
     adapter, _ = make_adapter({"meta": {"rc": "ok"}}, status=500)
     try:
         asyncio.run(adapter.async_write_device("site", "device", {"known": True}))
@@ -285,7 +293,7 @@ def test_http_and_envelope_failures_are_controlled() -> None:
             )
 
 
-def test_auth_and_permission_errors_are_not_retried() -> None:
+def test_auth_and_permission_errors_are_not_retried(enable_device_writes) -> None:
     for status, expected in (
         (401, UniFiAuthenticationError),
         (403, UniFiPermissionError),
@@ -339,7 +347,7 @@ def test_safe_read_reauthenticates_once_but_write_never_retries() -> None:
     assert len(write_session.calls) == 1
 
 
-def test_token_and_payload_never_appear_in_debug_logs() -> None:
+def test_token_and_payload_never_appear_in_debug_logs(enable_device_writes) -> None:
     response = fixture("device_put_response_brightness_35.json")
     adapter, _ = make_adapter(response)
     messages: list[str] = []
@@ -364,3 +372,17 @@ def test_token_and_payload_never_appear_in_debug_logs() -> None:
     log_output = "\n".join(messages)
     assert "csrf-value-that-must-not-be-logged" not in log_output
     assert "ether_lighting" not in log_output
+
+
+def test_device_adapter_write_gate_blocks_before_transport() -> None:
+    adapter, session = make_adapter({"meta": {"rc": "ok"}})
+
+    with pytest.raises(WriteCapabilityUnavailableError) as caught:
+        asyncio.run(
+            adapter.async_write_device(
+                "site_001", "device_001", {"ether_lighting": {"brightness": 31}}
+            )
+        )
+
+    assert caught.value.reason == "confirmed_write_configuration_incomplete"
+    assert session.calls == []

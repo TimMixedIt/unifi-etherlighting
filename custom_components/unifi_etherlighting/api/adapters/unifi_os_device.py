@@ -6,7 +6,13 @@ from typing import Any
 from urllib.parse import quote
 
 from ..client import UniFiApiClient
-from ..errors import DeviceNotFoundError, UniFiResponseError, UniFiSchemaError
+from ...const import WRITE_BLOCK_REASON, WRITE_CAPABILITY_ENABLED
+from ..errors import (
+    DeviceNotFoundError,
+    UniFiResponseError,
+    UniFiSchemaError,
+    WriteCapabilityUnavailableError,
+)
 from ..models import CONFIRMED_DEVICE_READ_ENDPOINT, CONFIRMED_DEVICE_WRITE_ENDPOINT
 
 
@@ -108,6 +114,8 @@ class UniFiOsDeviceAdapter:
     async def async_write_device(
         self, site_id: str, device_id: str, payload: dict[str, Any]
     ) -> dict[str, Any]:
+        if not WRITE_CAPABILITY_ENABLED:
+            raise WriteCapabilityUnavailableError(WRITE_BLOCK_REASON)
         if not isinstance(payload, dict) or not payload:
             raise ValueError(
                 "A non-empty, caller-provided complete device payload is required"

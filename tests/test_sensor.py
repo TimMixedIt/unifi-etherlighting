@@ -12,6 +12,7 @@ from custom_components.unifi_etherlighting.coordinator import (
 from custom_components.unifi_etherlighting.sensor import (
     EtherlightingCapabilitySensor,
     EtherlightingStatusSensor,
+    EtherlightingWriteCapabilitySensor,
 )
 
 
@@ -60,7 +61,18 @@ async def test_diagnostic_sensor_states_are_bounded(hass) -> None:
     candidates = EtherlightingCapabilitySensor(
         coordinator, "controller-entry", "candidate"
     )
+    write_status = EtherlightingWriteCapabilitySensor(
+        coordinator, "controller-entry"
+    )
     assert status.native_value == "online"
-    assert confirmed.extra_state_attributes == {"brightness": "confirmed"}
+    assert confirmed.extra_state_attributes == {}
+    assert write_status.native_value == "blocked"
+    assert write_status.extra_state_attributes == {
+        "brightness_read_supported": True,
+        "brightness_write_supported": "candidate",
+        "brightness_write_ready": False,
+        "write_block_reason": "confirmed_write_configuration_incomplete",
+        "missing_confirmed_fields": ["lcm_night_mode_enabled"],
+    }
     assert "behavior" in candidates.extra_state_attributes
     assert "payload" not in candidates.extra_state_attributes

@@ -59,9 +59,19 @@ async def test_coordinator_reads_version_and_devices_without_writing(hass) -> No
     assert coordinator.data.controller_status == "online"
     assert coordinator.data.network_application_version == "10.5.62"
     assert coordinator.data.devices[0].brightness == 30
-    assert coordinator.data.devices[0].brightness_confirmed
+    assert coordinator.data.devices[0].brightness_read_supported
+    assert coordinator.data.devices[0].brightness_write_supported.value == "candidate"
+    assert not coordinator.data.devices[0].brightness_write_ready
     assert any(
-        item.capability == "brightness" and item.state.value == "confirmed"
+        item.capability == "brightness" and item.state.value == "candidate"
         for item in coordinator.data.capabilities
+    )
+    assert coordinator.data.write_capability == "blocked"
+    assert (
+        coordinator.data.write_block_reason
+        == "confirmed_write_configuration_incomplete"
+    )
+    assert coordinator.data.missing_confirmed_fields == (
+        "lcm_night_mode_enabled",
     )
     assert devices.write_count == 0

@@ -2,6 +2,8 @@
 
 from enum import StrEnum
 
+from ..const import WRITE_DISABLED_MESSAGE
+
 
 class UniFiEtherlightingError(Exception):
     """Base error for this integration's controller boundary."""
@@ -71,3 +73,11 @@ class DeviceNotFoundError(UniFiEtherlightingError):
 
 class WriteBlockedError(UniFiEtherlightingError):
     """Further writes are blocked after an indeterminate result."""
+
+
+class WriteCapabilityUnavailableError(UniFiEtherlightingError):
+    """The central release gate blocks the requested write capability."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(WRITE_DISABLED_MESSAGE)
+        self.reason = reason

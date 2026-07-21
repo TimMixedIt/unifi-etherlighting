@@ -3,10 +3,10 @@
 ## Decision
 
 ```text
-PHASE_F2_ALLOWED = true
+PHASE_F2_ALLOWED = false
 ```
 
-The live prerequisites for implementing Etherlighting brightness as the sole productive write capability are satisfied for the exact captured compatibility tuple.
+The original reversible UI sequence remains valid evidence, but the later productive test showed that the confirmed Device read does not expose the complete UI write configuration. Productive writes are therefore superseded and blocked pending a separate field-source capture.
 
 | Gate | Evidence | Result |
 |---:|---|---|
@@ -23,23 +23,22 @@ The live prerequisites for implementing Etherlighting brightness as the sole pro
 | 11 | No alternate, legacy, or inferred endpoint was used | PASS |
 | 12 | UniFi OS / Network `10.5.62` / model `USWED72` / firmware `7.4.1.16850` | PASS |
 
-## Locked scope for Phase F2
+## Superseded Phase F2 scope
 
-The gate permits only the following productive capability:
+The earlier gate permitted only `ether_lighting.brightness`. That permission is now
+superseded by the incomplete write-configuration finding. The UI contract remains
+minimum 1, maximum 100, step 1, unit `%`, but it is read-only in version 0.2.5.
 
-- `ether_lighting.brightness`
+All write capabilities are locked:
 
-The exact supported UI contract is minimum 1, maximum 100, step 1, unit `%`.
-
-All other capabilities remain locked:
-
+- `brightness`: candidate, write-ready=false
 - `behavior`: candidate
 - `mode`: candidate
 - `enabled`: candidate
 - `network_color`: candidate
 - `port_control`: unsupported
 
-Phase F2 must continue to use only these confirmed paths:
+The following paths remain evidence only:
 
 - Login: `POST /api/auth/login`
 - Logout: `POST /api/auth/logout`
@@ -47,4 +46,6 @@ Phase F2 must continue to use only these confirmed paths:
 - Device read: `GET /proxy/network/api/s/{site}/stat/device`
 - Device write: `PUT /proxy/network/api/s/{site}/rest/device/{device}`
 
-No setup or polling operation may write. Every brightness write must be constructed from a fresh Device read, sent once, and independently verified by another Device read.
+No setup, polling, Number service, internal Brightness service, or Device adapter
+operation may write. A future release requires a new explicit gate decision after
+the complete UI write configuration has been confirmed from real reads.

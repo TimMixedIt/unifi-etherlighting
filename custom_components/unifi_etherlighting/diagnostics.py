@@ -24,6 +24,12 @@ _ALLOWED_KEYS = frozenset(
         "last_error_code",
         "last_successful_read",
         "last_verified_write",
+        "write_capability",
+        "write_block_reason",
+        "missing_confirmed_fields",
+        "brightness_read_supported",
+        "brightness_write_supported",
+        "brightness_write_ready",
         "options",
     }
 )
@@ -87,6 +93,23 @@ async def async_get_config_entry_diagnostics(
             for item in data.capabilities
         ],
         "last_error_code": data.last_error,
+        "write_capability": data.write_capability,
+        "write_block_reason": data.write_block_reason,
+        "missing_confirmed_fields": list(data.missing_confirmed_fields),
+        "brightness_read_supported": any(
+            device.brightness_read_supported for device in data.devices
+        ),
+        "brightness_write_supported": (
+            "candidate"
+            if any(
+                device.brightness_write_supported.value == "candidate"
+                for device in data.devices
+            )
+            else "unsupported"
+        ),
+        "brightness_write_ready": any(
+            device.brightness_write_ready for device in data.devices
+        ),
         "last_successful_read": (
             data.last_successful_update.isoformat()
             if data.last_successful_update

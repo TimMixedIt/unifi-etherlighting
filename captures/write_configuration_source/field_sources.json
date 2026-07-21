@@ -1,0 +1,238 @@
+{
+  "capture_role": "write_configuration_source",
+  "session_id": "write_configuration_source_capture_001",
+  "captured_at": "2026-07-21T18:25:11Z",
+  "capture_source": "unifi_network_web_ui_separate_browser_session",
+  "version_context": {
+    "controller_type": "unifi_os",
+    "network_application_version": "10.5.62",
+    "device_type": "usw",
+    "device_model": "USWED72",
+    "device_firmware": "7.4.1.16850"
+  },
+  "ui_sequence": {
+    "initial_brightness": 30,
+    "forward_brightness": 31,
+    "final_brightness": 30,
+    "write_count": 2,
+    "mode_unchanged": true,
+    "behavior_unchanged": true,
+    "final_read_confirmed": true
+  },
+  "requests": {
+    "configuration_read": {
+      "method": "GET",
+      "path": "/proxy/network/api/s/site_001/stat/device",
+      "status": 200,
+      "selection": "device_001"
+    },
+    "immediately_before_each_write": {
+      "method": "GET",
+      "path": "/api/users/self",
+      "status": 200,
+      "write_field_source": false
+    },
+    "forward_write": {
+      "method": "PUT",
+      "path": "/proxy/network/api/s/site_001/rest/device/device_001",
+      "status": 200
+    },
+    "reverse_write": {
+      "method": "PUT",
+      "path": "/proxy/network/api/s/site_001/rest/device/device_001",
+      "status": 200
+    }
+  },
+  "source_mapping": [
+    {
+      "write_path": "$.config_network",
+      "type": "object",
+      "source_path": "$.data[*].config_network",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.config_network.type",
+      "type": "string",
+      "source_path": "$.data[*].config_network.type",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.config_network.ip",
+      "type": "string",
+      "source_path": "$.data[*].config_network.ip",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.config_network.netmask",
+      "type": "string",
+      "source_path": "$.data[*].config_network.netmask",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.config_network.gateway",
+      "type": "string",
+      "source_path": "$.data[*].config_network.gateway",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.config_network.dns1",
+      "type": "string",
+      "source_path": "$.data[*].config_network.dns1",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.config_network.dns2",
+      "type": "string",
+      "source_path": "$.data[*].config_network.dns2",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.config_network.dnssuffix",
+      "type": "string",
+      "source_path": "$.data[*].config_network.dnssuffix",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.config_network.bonding_enabled",
+      "type": "boolean",
+      "source_path": "$.data[*].config_network.bonding_enabled",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.ether_lighting",
+      "type": "object",
+      "source_path": "$.data[*].ether_lighting",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.ether_lighting.mode",
+      "type": "string",
+      "source_path": "$.data[*].ether_lighting.mode",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.ether_lighting.brightness",
+      "type": "number",
+      "source_path": "$.data[*].ether_lighting.brightness",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.ether_lighting.behavior",
+      "type": "string",
+      "source_path": "$.data[*].ether_lighting.behavior",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.ether_lighting.led_mode",
+      "type": "string",
+      "source_path": "$.data[*].ether_lighting.led_mode",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.lcm_brightness",
+      "type": "number",
+      "source_path": "$.data[*].lcm_brightness",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.lcm_brightness_override",
+      "type": "boolean",
+      "source_path": "$.data[*].lcm_brightness_override",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.lcm_night_mode_begins",
+      "type": "string",
+      "source_path": "$.data[*].lcm_night_mode_begins",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.lcm_night_mode_enabled",
+      "type": "boolean",
+      "source_path": null,
+      "source_request": null,
+      "status": "not_observed_in_ui_read_responses"
+    },
+    {
+      "write_path": "$.lcm_night_mode_ends",
+      "type": "string",
+      "source_path": "$.data[*].lcm_night_mode_ends",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.lcm_orientation_override",
+      "type": "number",
+      "source_path": "$.data[*].lcm_orientation_override",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.mgmt_network_id",
+      "type": "string",
+      "source_path": "$.data[*].mgmt_network_id",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.name",
+      "type": "string",
+      "source_path": "$.data[*].name",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.snmp_contact",
+      "type": "string",
+      "source_path": "$.data[*].snmp_contact",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.snmp_location",
+      "type": "string",
+      "source_path": "$.data[*].snmp_location",
+      "source_request": "configuration_read",
+      "status": "observed"
+    },
+    {
+      "write_path": "$.stp_priority",
+      "type": "string",
+      "source_path": "$.data[*].stp_priority",
+      "source_request": "configuration_read",
+      "status": "observed"
+    }
+  ],
+  "conclusion": {
+    "complete_confirmed_write_configuration_available": false,
+    "unresolved_write_fields": [
+      "lcm_night_mode_enabled"
+    ],
+    "brightness_write_ready": false,
+    "no_speculative_source_added": true
+  },
+  "sanitization": {
+    "raw_requests_stored": false,
+    "raw_responses_stored": false,
+    "header_values_stored": false,
+    "controller_identifiers_stored": false,
+    "contains_sensitive_values": false
+  }
+}

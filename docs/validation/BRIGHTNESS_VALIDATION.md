@@ -2,7 +2,7 @@
 
 ## Result
 
-**Capability decision: `confirmed`**
+**Historical UI-sequence decision: `reversible`; current productive write decision: `candidate` and blocked**
 
 The same signed-in Chrome session produced a complete UI-triggered read, forward write, independent read-back, reverse write, and final independent read. The original visible state was restored. No manually constructed controller request was used.
 
@@ -84,6 +84,8 @@ Result: **PASS**
 
 ## Capability decision
 
-All release conditions for this captured controller, Network Application, switch model, and switch firmware combination are satisfied. `brightness` may therefore move from `candidate` to `confirmed` for this exact compatibility tuple.
+The reversible UI sequence remains confirmed. A later productive test established that `lcm_night_mode_enabled`, which the UI sent in the write payload, is absent from the confirmed `stat/device` read. The complete write configuration therefore cannot yet be reconstructed safely. Brightness remains readable, while write support is `candidate` and write readiness is false.
 
-This report does not activate a Home Assistant entity, add `Platform.NUMBER`, or enable production read-modify-write behavior. Productive integration code remains unchanged pending a separate implementation decision.
+The Number entity remains active only as a readable presentation of the confirmed
+value. Version 0.2.5 blocks its service handler, the internal Brightness service,
+and the Device adapter before any write-related network operation.

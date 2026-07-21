@@ -28,7 +28,7 @@ from .api.errors import (
     UniFiSchemaError,
     UniFiTransportError,
 )
-from .api.models import CURRENT_COMPATIBILITY, brightness_is_confirmed
+from .api.models import CURRENT_COMPATIBILITY, brightness_read_is_supported
 from .const import (
     CONF_DEBUG_DIAGNOSTICS,
     CONF_DEVICE_IDS,
@@ -206,7 +206,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             compatible = tuple(
                 device
                 for device in all_devices
-                if brightness_is_confirmed(network_version, device)
+                if brightness_read_is_supported(network_version, device)
             )
             if not compatible:
                 raise vol.Invalid("no_compatible_devices")

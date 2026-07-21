@@ -3,16 +3,17 @@ from custom_components.unifi_etherlighting.api.models import (
     CapabilityState,
     ControllerCompatibilityKey,
     EvidenceLevel,
-    brightness_is_confirmed,
+    brightness_capability_status,
+    brightness_read_is_supported,
     capabilities_for_runtime,
     current_capture_capabilities,
 )
 
 
-def test_only_brightness_is_confirmed_for_exact_capture() -> None:
+def test_brightness_write_remains_candidate_for_exact_capture() -> None:
     evidence = {item.capability: item for item in current_capture_capabilities()}
     assert evidence["device_write"].evidence is EvidenceLevel.WRITE_ACCEPTED
-    assert evidence["brightness"].state is CapabilityState.CONFIRMED
+    assert evidence["brightness"].state is CapabilityState.CANDIDATE
     assert evidence["brightness"].evidence is EvidenceLevel.REVERSIBLE
     assert evidence["behavior"].state is CapabilityState.CANDIDATE
     assert evidence["behavior"].evidence is EvidenceLevel.WRITE_ACCEPTED
@@ -20,11 +21,9 @@ def test_only_brightness_is_confirmed_for_exact_capture() -> None:
     assert evidence["enabled"].evidence is EvidenceLevel.CAPTURED
     assert evidence["port_control"].state is CapabilityState.UNSUPPORTED
     assert evidence["network_color"].state is CapabilityState.CANDIDATE
-    assert [
-        item.capability
-        for item in evidence.values()
-        if item.state is CapabilityState.CONFIRMED
-    ] == ["brightness"]
+    assert not any(
+        item.state is CapabilityState.CONFIRMED for item in evidence.values()
+    )
 
 
 def test_missing_network_application_version_prevents_confirmed() -> None:
@@ -68,14 +67,18 @@ def test_runtime_compatibility_has_no_wildcards() -> None:
         "version": "7.4.1.16850",
         "ether_lighting": {"brightness": 30},
     }
-    assert brightness_is_confirmed("10.5.62", exact)
+    assert brightness_read_is_supported("10.5.62", exact)
+    exact_status = brightness_capability_status("10.5.62", exact)
+    assert exact_status.read_supported
+    assert exact_status.write_supported is CapabilityState.CANDIDATE
+    assert not exact_status.write_ready
     for version, model, firmware in (
         ("10.5.63", "USWED72", "7.4.1.16850"),
         ("10.5.62", "USWED73", "7.4.1.16850"),
         ("10.5.62", "USWED72", "7.4.2"),
     ):
         changed = {**exact, "model": model, "version": firmware}
-        assert not brightness_is_confirmed(version, changed)
+        assert not brightness_read_is_supported(version, changed)
         runtime = {
             item.capability: item
             for item in capabilities_for_runtime(version, (changed,))

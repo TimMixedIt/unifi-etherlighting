@@ -15,6 +15,8 @@ except ImportError:  # pragma: no cover - enables local validation on older Pyth
 
 from typing import Any
 
+from ..const import WRITE_CAPABILITY_ENABLED
+
 
 class EvidenceLevel(StrEnum):
     UNKNOWN = "unknown"
@@ -89,6 +91,15 @@ class CapabilityEvidence:
             raise ValueError("CONFIRMED requires read-verified evidence")
 
 
+@dataclass(frozen=True, slots=True)
+class BrightnessCapabilityStatus:
+    """Keep readable state, write evidence, and release readiness separate."""
+
+    read_supported: bool
+    write_supported: CapabilityState
+    write_ready: bool
+
+
 CURRENT_COMPATIBILITY = ControllerCompatibilityKey(
     controller_type="unifi_os",
     network_application_version="10.5.62",
@@ -161,13 +172,14 @@ def current_capture_capabilities() -> tuple[CapabilityEvidence, ...]:
         ),
         CapabilityEvidence(
             "brightness",
-            CapabilityState.CONFIRMED,
+            CapabilityState.CANDIDATE,
             EvidenceLevel.REVERSIBLE,
             CURRENT_COMPATIBILITY,
             "ether_lighting.brightness",
             (30, 31),
             (
-                "UI write, independent read-back, reversal, and final read are confirmed.",
+                "UI write and reversal are evidenced, but the complete write "
+                "configuration is not independently readable.",
             ),
         ),
         CapabilityEvidence(
@@ -234,10 +246,10 @@ def compatibility_key_for_device(
     )
 
 
-def brightness_is_confirmed(
+def brightness_read_is_supported(
     network_application_version: str, device: dict[str, Any]
 ) -> bool:
-    """Release brightness only for the one exact validated tuple and field path."""
+    """Expose the read value only for the exact validated tuple and field path."""
     ether_lighting = device.get("ether_lighting")
     return (
         compatibility_key_for_device(network_application_version, device)
@@ -248,13 +260,31 @@ def brightness_is_confirmed(
     )
 
 
+def brightness_capability_status(
+    network_application_version: str, device: dict[str, Any]
+) -> BrightnessCapabilityStatus:
+    """Return independent read, write-evidence, and write-readiness states."""
+    read_supported = brightness_read_is_supported(
+        network_application_version, device
+    )
+    return BrightnessCapabilityStatus(
+        read_supported=read_supported,
+        write_supported=(
+            CapabilityState.CANDIDATE
+            if read_supported
+            else CapabilityState.UNSUPPORTED
+        ),
+        write_ready=read_supported and WRITE_CAPABILITY_ENABLED,
+    )
+
+
 def capabilities_for_runtime(
     network_application_version: str, devices: tuple[dict[str, Any], ...]
 ) -> tuple[CapabilityEvidence, ...]:
     """Downgrade brightness unless at least one selected Device matches exactly."""
     capabilities = list(current_capture_capabilities())
     if any(
-        brightness_is_confirmed(network_application_version, device)
+        brightness_read_is_supported(network_application_version, device)
         for device in devices
     ):
         return tuple(capabilities)

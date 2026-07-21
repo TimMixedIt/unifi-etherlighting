@@ -5,14 +5,17 @@ from copy import deepcopy
 import json
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
+from custom_components.unifi_etherlighting import brightness as brightness_module
 from custom_components.unifi_etherlighting.api.errors import (
     UniFiTransportError,
     UnsupportedCompatibilityError,
     VerificationError,
     WriteBlockedError,
+    WriteCapabilityUnavailableError,
 )
 from custom_components.unifi_etherlighting.brightness import (
     BrightnessService,
@@ -26,6 +29,13 @@ FIXTURES = Path(__file__).parent / "fixtures"
 def device(brightness: int = 30) -> dict[str, Any]:
     value = json.loads((FIXTURES / "device_read_brightness_30.json").read_text())
     value["ether_lighting"]["brightness"] = brightness
+    return value
+
+
+def complete_write_source(brightness: int = 30) -> dict[str, Any]:
+    """Add only the value observed in the confirmed UI write request."""
+    value = device(brightness)
+    value["lcm_night_mode_enabled"] = False
     return value
 
 
@@ -80,7 +90,7 @@ class FakeDevices:
 
 
 def test_payload_builder_projects_exact_ui_shape_and_preserves_original() -> None:
-    original = device()
+    original = complete_write_source()
     snapshot = deepcopy(original)
     payload = build_brightness_write_payload(original, 31)
     assert original == snapshot
@@ -109,21 +119,31 @@ def test_payload_builder_projects_exact_ui_shape_and_preserves_original() -> Non
 
 def test_payload_builder_rejects_missing_fields_paths_and_limits() -> None:
     for mutation in ("name", "config_network", "ether_lighting"):
-        current = device()
+        current = complete_write_source()
         current.pop(mutation)
         with pytest.raises(VerificationError):
             build_brightness_write_payload(current, 31)
-    current = device()
+    current = complete_write_source()
     current["ether_lighting"].pop("brightness")
     with pytest.raises(VerificationError):
         build_brightness_write_payload(current, 31)
     for value in (0, 101, 1.5, True):
         with pytest.raises(ValueError):
-            build_brightness_write_payload(device(), value)  # type: ignore[arg-type]
+            build_brightness_write_payload(
+                complete_write_source(), value  # type: ignore[arg-type]
+            )
 
 
-def test_successful_write_is_sent_once_and_read_back() -> None:
-    devices = FakeDevices([device(30), device(31)])
+def test_live_read_shape_cannot_build_complete_write_payload() -> None:
+    with pytest.raises(VerificationError) as caught:
+        build_brightness_write_payload(device(), 31)
+    assert "top-level write fields" in str(caught.value)
+    assert "lcm_night_mode_enabled" not in str(caught.value)
+
+
+def test_successful_write_is_sent_once_and_read_back(monkeypatch) -> None:
+    monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
+    devices = FakeDevices([complete_write_source(30), complete_write_source(31)])
     service = BrightnessService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
     result = asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
     assert result.outcome is BrightnessWriteOutcome.APPLIED
@@ -133,8 +153,9 @@ def test_successful_write_is_sent_once_and_read_back() -> None:
     assert service.last_verified_write is not None
 
 
-def test_other_runtime_version_blocks_before_write() -> None:
-    devices = FakeDevices([device(30)])
+def test_other_runtime_version_blocks_before_write(monkeypatch) -> None:
+    monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
+    devices = FakeDevices([complete_write_source(30)])
     service = BrightnessService(
         FakeAuth(),
         FakeController("10.5.63"),
@@ -145,9 +166,10 @@ def test_other_runtime_version_blocks_before_write() -> None:
     assert devices.writes == []
 
 
-def test_timeout_is_not_retried_and_is_classified_by_read() -> None:
+def test_timeout_is_not_retried_and_is_classified_by_read(monkeypatch) -> None:
+    monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
     devices = FakeDevices(
-        [device(30), device(31)],
+        [complete_write_source(30), complete_write_source(31)],
         write_error=UniFiTransportError("timeout", request_may_have_been_sent=True),
     )
     service = BrightnessService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
@@ -156,19 +178,22 @@ def test_timeout_is_not_retried_and_is_classified_by_read() -> None:
     assert len(devices.writes) == 1
 
 
-def test_unchanged_state_is_not_applied_and_mixed_state_blocks_writes() -> None:
+def test_unchanged_state_is_not_applied_and_mixed_state_blocks_writes(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
     unchanged = FakeDevices(
-        [device(30), device(30)],
+        [complete_write_source(30), complete_write_source(30)],
         write_error=UniFiTransportError("timeout", request_may_have_been_sent=True),
     )
     service = BrightnessService(FakeAuth(), FakeController(), unchanged)  # type: ignore[arg-type]
     result = asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
     assert result.outcome is BrightnessWriteOutcome.NOT_APPLIED
 
-    mixed = device(30)
+    mixed = complete_write_source(30)
     mixed["ether_lighting"]["behavior"] = "changed"
     uncertain = FakeDevices(
-        [device(30), mixed],
+        [complete_write_source(30), mixed],
         write_error=UniFiTransportError("timeout", request_may_have_been_sent=True),
     )
     blocked = BrightnessService(FakeAuth(), FakeController(), uncertain)  # type: ignore[arg-type]
@@ -177,3 +202,36 @@ def test_unchanged_state_is_not_applied_and_mixed_state_blocks_writes() -> None:
     with pytest.raises(WriteBlockedError):
         asyncio.run(blocked.async_set_brightness("site_001", "device_001", 31))
     assert len(uncertain.writes) == 1
+
+
+async def test_central_write_gate_stops_before_every_network_operation(
+    monkeypatch,
+) -> None:
+    auth = AsyncMock()
+    controller = AsyncMock()
+    devices = AsyncMock()
+    payload_builder = AsyncMock()
+    monkeypatch.setattr(
+        brightness_module, "build_brightness_write_payload", payload_builder
+    )
+    service = BrightnessService(auth, controller, devices)
+
+    with pytest.raises(WriteCapabilityUnavailableError) as caught:
+        await service.async_set_brightness("site_001", "device_001", 31)
+
+    assert caught.value.reason == "confirmed_write_configuration_incomplete"
+    assert str(caught.value) == (
+        "Etherlighting brightness writes are temporarily disabled because the "
+        "complete confirmed write configuration is unavailable."
+    )
+    assert service.last_error_code == "confirmed_write_configuration_incomplete"
+    auth.async_ensure_authenticated.assert_not_awaited()
+    auth.async_login.assert_not_awaited()
+    controller.async_read_network_application_version.assert_not_awaited()
+    devices.async_read_device.assert_not_awaited()
+    devices.async_write_device.assert_not_awaited()
+    payload_builder.assert_not_awaited()
+    assert not any(
+        method in repr(devices.mock_calls).upper()
+        for method in ("PUT", "PATCH", "POST")
+    )

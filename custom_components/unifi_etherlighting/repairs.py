@@ -8,7 +8,7 @@ from homeassistant.helpers import issue_registry as ir
 
 from .api.models import CURRENT_COMPATIBILITY
 from .coordinator import EtherlightingCoordinatorData
-from .const import CONTROLLER_STATUS_UNSUPPORTED, DOMAIN
+from .const import CONTROLLER_STATUS_UNSUPPORTED, DOMAIN, WRITE_CAPABILITY_STATE
 
 
 def _sync_issue(
@@ -36,6 +36,13 @@ async def async_sync_repairs(
     hass: HomeAssistant, entry: ConfigEntry, data: EtherlightingCoordinatorData
 ) -> None:
     """Synchronize safe issues without exposing hosts, credentials, or Device IDs."""
+    _sync_issue(
+        hass,
+        entry,
+        "write_configuration_incomplete",
+        data.write_capability == WRITE_CAPABILITY_STATE,
+        "write_configuration_incomplete",
+    )
     _sync_issue(
         hass,
         entry,
