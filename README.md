@@ -42,6 +42,8 @@ Diese Capabilities bleiben `candidate`; Portsteuerung bleibt `unsupported`.
 
 Der Config Flow führt einen echten lokalen Login sowie ausschließlich bestätigte Read-Aufrufe aus. Er führt keinen Test-Write aus. Bei selbstsignierten Zertifikaten muss die Zertifikatsprüfung bewusst deaktiviert werden.
 
+Unerwartete Einrichtungsfehler werden sicher einer der Phasen `session`, `login`, `version_read`, `device_read` oder `compatibility` zugeordnet. Ein best-effort fehlgeschlagener Logout wird als Phase `logout` protokolliert, kann aber einen erfolgreichen Flow nicht maskieren. Die Diagnose enthält keine Controlleradresse, Zugangsdaten, Cookies, Token, CSRF-Werte oder Request-/Response-Inhalte.
+
 ## Laufzeitverhalten
 
 Die Integration lädt ausschließlich:

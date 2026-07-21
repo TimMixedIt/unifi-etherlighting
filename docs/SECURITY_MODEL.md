@@ -6,6 +6,7 @@
 - Die dedizierte Home-Assistant-ClientSession hält Session-Cookies nur im Speicher.
 - Der Cookie-Name `TOKEN` und Headername `X-CSRF-Token` sind bestätigt; ihre Werte werden weder persistiert noch diagnostisch ausgegeben.
 - Diagnostics sind allowlist-basiert und enthalten weder Host, Site, Device-ID, Zugangsdaten, Payloads noch vollständige Responses.
+- Config-Flow-Fehler werden nur mit Validierungsphase, sicherer Fehlerkategorie, Python-Exception-Typ und optionaler dreistelliger HTTP-Statuszahl protokolliert. Exception-Texte, URLs, Header- und Body-Werte werden verworfen.
 - Setup und Polling führen ausschließlich Reads aus.
 - Writes werden einmal gesendet, niemals automatisch wiederholt und immer per Device-Read klassifiziert.
 - Ein unbestimmtes Ergebnis sperrt weitere Writes für das betroffene Gerät.

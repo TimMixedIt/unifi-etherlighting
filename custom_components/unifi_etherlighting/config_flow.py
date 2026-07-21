@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
+import logging
 import re
 from typing import Any
 
@@ -41,6 +43,82 @@ from .const import (
 )
 
 _SITE_SLUG = re.compile(r"^[A-Za-z0-9_-]+$")
+_HTTP_STATUS = re.compile(r"\bHTTP ([1-5][0-9]{2})\b")
+_LOGGER = logging.getLogger(__name__)
+
+
+class ValidationStage(StrEnum):
+    """Security-safe phases of the read-only config-flow validation."""
+
+    SESSION = "session"
+    LOGIN = "login"
+    VERSION_READ = "version_read"
+    DEVICE_READ = "device_read"
+    COMPATIBILITY = "compatibility"
+    LOGOUT = "logout"
+
+
+class ValidationStageError(Exception):
+    """Carry a validation phase without exposing controller error details."""
+
+    def __init__(self, stage: ValidationStage, cause: Exception) -> None:
+        super().__init__(f"Config-flow validation failed at stage={stage.value}")
+        self.stage = stage
+        self.cause = cause
+
+
+def _safe_exception_type(error: Exception) -> str:
+    cause = error.__cause__
+    return type(cause if isinstance(cause, Exception) else error).__name__
+
+
+def _safe_http_status(error: Exception) -> str:
+    match = _HTTP_STATUS.search(str(error))
+    return match.group(1) if match else "none"
+
+
+def _error_key_for_stage(error: ValidationStageError) -> str:
+    cause = error.cause
+    if isinstance(cause, UniFiAuthenticationError):
+        return "invalid_auth"
+    if isinstance(cause, UniFiPermissionError):
+        return "insufficient_permissions"
+    if isinstance(cause, UniFiTransportError):
+        cause_name = _safe_exception_type(cause)
+        if "Certificate" in cause_name:
+            return "invalid_ssl"
+        if isinstance(cause.__cause__, TimeoutError):
+            return "timeout"
+        return "cannot_connect"
+    if isinstance(cause, TimeoutError):
+        return "timeout"
+    if isinstance(cause, vol.Invalid):
+        reason = str(cause)
+        if reason in {
+            "unsupported_network_version",
+            "no_devices",
+            "no_compatible_devices",
+        }:
+            return reason
+    if (
+        isinstance(cause, UniFiResponseError)
+        and error.stage is ValidationStage.DEVICE_READ
+        and _safe_http_status(cause) == "404"
+    ):
+        return "site_not_found"
+    return f"validation_{error.stage.value}"
+
+
+def _log_stage_failure(error: ValidationStageError, category: str) -> None:
+    """Log only allowlisted diagnostic fields, never exception messages."""
+    _LOGGER.warning(
+        "UniFi config-flow validation failed: stage=%s category=%s "
+        "exception_type=%s http_status=%s",
+        error.stage.value,
+        category,
+        _safe_exception_type(error.cause),
+        _safe_http_status(error.cause),
+    )
 
 
 def _normalise_unique_id(host: str, port: int) -> str:
@@ -90,50 +168,61 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def _async_validate_connection(
         self, data: dict[str, Any]
     ) -> tuple[dict[str, Any], ...]:
-        session = async_create_clientsession(
-            self.hass,
-            verify_ssl=data[CONF_VERIFY_SSL],
-            cookie_jar=CookieJar(unsafe=True),
-        )
-        base_url = self._base_url(data)
-        auth = UniFiAuthSession(
-            session, base_url, data[CONF_USERNAME], data[CONF_PASSWORD]
-        )
-        client = UniFiApiClient(
-            session,
-            base_url,
-            auth.async_get_csrf_token,
-            auth_session=auth,
-        )
-        controller = UniFiOsControllerAdapter(client)
-        devices = UniFiOsDeviceAdapter(client)
+        stage = ValidationStage.SESSION
+        auth: UniFiAuthSession | None = None
         try:
+            session = async_create_clientsession(
+                self.hass,
+                verify_ssl=data[CONF_VERIFY_SSL],
+                cookie_jar=CookieJar(unsafe=True),
+            )
+            base_url = self._base_url(data)
+            auth = UniFiAuthSession(
+                session, base_url, data[CONF_USERNAME], data[CONF_PASSWORD]
+            )
+            client = UniFiApiClient(
+                session,
+                base_url,
+                auth.async_get_csrf_token,
+                auth_session=auth,
+            )
+            controller = UniFiOsControllerAdapter(client)
+            devices = UniFiOsDeviceAdapter(client)
+
+            stage = ValidationStage.LOGIN
             await auth.async_login()
+
+            stage = ValidationStage.VERSION_READ
             network_version = await controller.async_read_network_application_version()
+
+            stage = ValidationStage.DEVICE_READ
             all_devices = await devices.async_read_devices(data[CONF_SITE])
+
+            stage = ValidationStage.COMPATIBILITY
+            if network_version != CURRENT_COMPATIBILITY.network_application_version:
+                raise vol.Invalid("unsupported_network_version")
+            if not all_devices:
+                raise vol.Invalid("no_devices")
+            compatible = tuple(
+                device
+                for device in all_devices
+                if brightness_is_confirmed(network_version, device)
+            )
+            if not compatible:
+                raise vol.Invalid("no_compatible_devices")
+            return compatible
+        except ValidationStageError:
+            raise
+        except Exception as err:
+            raise ValidationStageError(stage, err) from None
         finally:
-            if auth.authenticated:
+            if auth is not None and auth.authenticated:
                 try:
                     await auth.async_logout()
-                except Exception:
-                    # This session is temporary. A best-effort logout failure must not
-                    # replace a successful login/read result with "invalid_auth".
-                    # Do not log the exception because transport details may contain
-                    # controller-identifying data.
+                except Exception as err:
                     auth.async_invalidate()
-
-        if network_version != CURRENT_COMPATIBILITY.network_application_version:
-            raise vol.Invalid("unsupported_network_version")
-        if not all_devices:
-            raise vol.Invalid("no_devices")
-        compatible = tuple(
-            device
-            for device in all_devices
-            if brightness_is_confirmed(network_version, device)
-        )
-        if not compatible:
-            raise vol.Invalid("no_compatible_devices")
-        return compatible
+                    logout_error = ValidationStageError(ValidationStage.LOGOUT, err)
+                    _log_stage_failure(logout_error, "validation_logout")
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -150,6 +239,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         errors=errors,
                     )
                 compatible = await self._async_validate_connection(validated)
+            except ValidationStageError as err:
+                category = _error_key_for_stage(err)
+                _log_stage_failure(err, category)
+                errors["base"] = category
             except vol.Invalid as err:
                 reason = str(err)
                 errors["base"] = (
