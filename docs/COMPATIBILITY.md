@@ -2,7 +2,7 @@
 
 | Controller | Network App | Device-Typ | Modell | Firmware | Read-Support | Write-Support | Write-ready |
 |---|---|---|---|---|---|---|---|
-| UniFi OS | `10.5.62` | `usw` | `USWED72` | `7.4.1.16850` | `brightness`, `behavior`, `mode` | `confirmed` | ja |
+| UniFi OS | `10.5.62` | `usw` | `USWED72` | `7.4.1.16850` | `brightness`, `behavior`, `mode`, `network_color`, `speed_color` | `confirmed` | ja |
 
 Die Prüfung verwendet einen exakten `ControllerCompatibilityKey`. Es gibt keine Wildcards für Network 10.x, Firmware 7.x, Modellfamilien oder ähnlich benannte Switches.
 
@@ -10,5 +10,5 @@ Zusätzlich zur exakten Version muss das aktuelle Device-Objekt die bestätigten
 
 Weiterhin gesperrt:
 
-- `enabled`, `network_color`: `candidate`
+- `enabled`: `candidate`
 - `port_control`: `unsupported`

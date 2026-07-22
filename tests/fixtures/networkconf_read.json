@@ -1,0 +1,12 @@
+{
+  "meta": {
+    "rc": "ok"
+  },
+  "data": [
+    {"_id": "network_001", "name": "Network 1", "purpose": "corporate"},
+    {"_id": "network_002", "name": "Network 2", "purpose": "corporate"},
+    {"_id": "network_003", "name": "Network 3", "purpose": "corporate"},
+    {"_id": "network_004", "name": "Network 4", "purpose": "corporate"},
+    {"_id": "network_005", "name": "Network 5", "purpose": "corporate"}
+  ]
+}

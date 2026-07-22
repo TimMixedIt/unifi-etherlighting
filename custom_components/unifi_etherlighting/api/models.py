@@ -157,6 +157,36 @@ CONFIRMED_DEVICE_WRITE_ENDPOINT = EndpointDefinition(
     response_success_value="ok",
 )
 
+CONFIRMED_ETHERLIGHTING_SETTINGS_READ_ENDPOINT = EndpointDefinition(
+    operation="etherlighting_settings_read",
+    method="GET",
+    path_template="/proxy/network/api/s/{site}/get/setting",
+    evidence=EvidenceLevel.READ_VERIFIED,
+    requires_csrf=False,
+    response_success_path="meta.rc",
+    response_success_value="ok",
+)
+
+CONFIRMED_ETHERLIGHTING_SETTINGS_WRITE_ENDPOINT = EndpointDefinition(
+    operation="etherlighting_settings_write",
+    method="POST",
+    path_template="/proxy/network/api/s/{site}/set/setting/ether_lighting",
+    evidence=EvidenceLevel.WRITE_ACCEPTED,
+    requires_csrf=True,
+    response_success_path="meta.rc",
+    response_success_value="ok",
+)
+
+CONFIRMED_NETWORK_CONFIGURATION_READ_ENDPOINT = EndpointDefinition(
+    operation="network_configuration_read",
+    method="GET",
+    path_template="/proxy/network/api/s/{site}/rest/networkconf",
+    evidence=EvidenceLevel.READ_VERIFIED,
+    requires_csrf=False,
+    response_success_path="meta.rc",
+    response_success_value="ok",
+)
+
 
 def current_capture_capabilities() -> tuple[CapabilityEvidence, ...]:
     """Evidence records for the exact live-validated compatibility tuple."""
@@ -215,12 +245,27 @@ def current_capture_capabilities() -> tuple[CapabilityEvidence, ...]:
         ),
         CapabilityEvidence(
             "network_color",
-            CapabilityState.CANDIDATE,
-            EvidenceLevel.CAPTURED,
+            CapabilityState.CONFIRMED,
+            EvidenceLevel.REVERSIBLE,
             CURRENT_COMPATIBILITY,
-            None,
-            (),
-            ("Network color is outside the confirmed Device brightness contract.",),
+            "network_overrides[*].raw_color_hex",
+            ("0544FF", "0644FF"),
+            (
+                "Site-setting UI write, independent read-back, reversal, and "
+                "final read are live-confirmed.",
+            ),
+        ),
+        CapabilityEvidence(
+            "speed_color",
+            CapabilityState.CONFIRMED,
+            EvidenceLevel.REVERSIBLE,
+            CURRENT_COMPATIBILITY,
+            "speed_overrides[*].raw_color_hex",
+            ("FFC105", "FEC105"),
+            (
+                "Site-setting UI write, independent read-back, reversal, and "
+                "final read are live-confirmed.",
+            ),
         ),
         CapabilityEvidence(
             "port_control",
@@ -286,6 +331,16 @@ def mode_read_is_supported(
     )
 
 
+def color_read_is_supported(
+    network_application_version: str, device: dict[str, Any]
+) -> bool:
+    """Allow site color controls only for the exact validated switch tuple."""
+    return (
+        compatibility_key_for_device(network_application_version, device)
+        == CURRENT_COMPATIBILITY
+    )
+
+
 def _capability_status(read_supported: bool) -> ControlCapabilityStatus:
     return ControlCapabilityStatus(
         read_supported=read_supported,
@@ -339,6 +394,8 @@ def capabilities_for_runtime(
         "brightness": brightness_read_is_supported,
         "behavior": behavior_read_is_supported,
         "mode": mode_read_is_supported,
+        "network_color": color_read_is_supported,
+        "speed_color": color_read_is_supported,
     }
     for capability_name, support_check in support_checks.items():
         if any(support_check(network_application_version, device) for device in devices):

@@ -6,6 +6,10 @@ from pathlib import Path
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.unifi_etherlighting.const import DOMAIN
+from custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting import (
+    NetworkLabel,
+    parse_etherlighting_settings_response,
+)
 from custom_components.unifi_etherlighting.coordinator import (
     EtherlightingDataUpdateCoordinator,
 )
@@ -40,6 +44,24 @@ class FakeService:
         return False
 
 
+class FakeColorSettings:
+    async def async_read_settings(self, site: str):
+        return parse_etherlighting_settings_response(
+            json.loads(
+                (
+                    Path(__file__).parent
+                    / "fixtures/etherlighting_settings_read.json"
+                ).read_text()
+            )
+        )
+
+    async def async_read_network_labels(self, site: str):
+        data = json.loads(
+            (Path(__file__).parent / "fixtures/networkconf_read.json").read_text()
+        )["data"]
+        return tuple(NetworkLabel(item["_id"], item["name"]) for item in data)
+
+
 async def test_diagnostic_sensor_states_are_bounded(hass) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -51,6 +73,8 @@ async def test_diagnostic_sensor_states_are_bounded(hass) -> None:
         entry,
         FakeController(),
         FakeDevices(),
+        FakeService(),  # type: ignore[arg-type]
+        FakeColorSettings(),  # type: ignore[arg-type]
         FakeService(),  # type: ignore[arg-type]
     )
     await coordinator.async_refresh()
@@ -69,6 +93,8 @@ async def test_diagnostic_sensor_states_are_bounded(hass) -> None:
         "brightness": "confirmed",
         "behavior": "confirmed",
         "mode": "confirmed",
+        "network_color": "confirmed",
+        "speed_color": "confirmed",
     }
     assert write_status.native_value == "ready"
     assert write_status.extra_state_attributes == {

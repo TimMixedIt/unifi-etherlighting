@@ -6,7 +6,7 @@ from datetime import timedelta
 
 DOMAIN = "unifi_etherlighting"
 NAME = "UniFi Etherlighting"
-VERSION = "0.3.1"
+VERSION = "0.4.0"
 
 CONF_HOST = "host"
 CONF_PORT = "port"
@@ -31,6 +31,14 @@ BRIGHTNESS_MINIMUM = 1
 BRIGHTNESS_MAXIMUM = 100
 BRIGHTNESS_STEP = 1
 BRIGHTNESS_UNIT = "%"
+
+SUPPORTED_SPEED_COLOR_KEYS: tuple[str, ...] = (
+    "FE",
+    "GbE",
+    "2.5GbE",
+    "5GbE",
+    "10GbE",
+)
 
 WRITE_CAPABILITY_ENABLED = True
 WRITE_CAPABILITY_STATE = "ready"

@@ -8,6 +8,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from homeassistant.helpers import entity_registry as er
 
 from custom_components.unifi_etherlighting.const import DOMAIN
+from custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting import (
+    NetworkLabel,
+    parse_etherlighting_settings_response,
+)
 
 
 async def test_setup_and_unload_never_write_controller(hass) -> None:
@@ -30,6 +34,16 @@ async def test_setup_and_unload_never_write_controller(hass) -> None:
     device = json.loads(
         (Path(__file__).parent / "fixtures/device_read_brightness_30.json").read_text()
     )
+    settings = json.loads(
+        (Path(__file__).parent / "fixtures/etherlighting_settings_read.json").read_text()
+    )
+    networkconf = json.loads(
+        (Path(__file__).parent / "fixtures/networkconf_read.json").read_text()
+    )
+    parsed_settings = parse_etherlighting_settings_response(settings)
+    parsed_labels = tuple(
+        NetworkLabel(item["_id"], item["name"]) for item in networkconf["data"]
+    )
     with (
         patch(
             "custom_components.unifi_etherlighting.async_create_clientsession",
@@ -47,6 +61,18 @@ async def test_setup_and_unload_never_write_controller(hass) -> None:
             "custom_components.unifi_etherlighting.api.adapters.unifi_os_device.UniFiOsDeviceAdapter.async_write_device",
             new=AsyncMock(),
         ) as write,
+        patch(
+            "custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting.UniFiOsEtherlightingSettingsAdapter.async_read_settings",
+            new=AsyncMock(return_value=parsed_settings),
+        ),
+        patch(
+            "custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting.UniFiOsEtherlightingSettingsAdapter.async_read_network_labels",
+            new=AsyncMock(return_value=parsed_labels),
+        ),
+        patch(
+            "custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting.UniFiOsEtherlightingSettingsAdapter.async_write_overrides",
+            new=AsyncMock(),
+        ) as color_write,
     ):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
@@ -55,6 +81,7 @@ async def test_setup_and_unload_never_write_controller(hass) -> None:
         assert len([item for item in entries if item.domain == "number"]) == 1
         assert len([item for item in entries if item.domain == "select"]) == 1
         assert len([item for item in entries if item.domain == "switch"]) == 1
-        assert not any(item.domain == "light" for item in entries)
+        assert len([item for item in entries if item.domain == "light"]) == 10
         assert await hass.config_entries.async_unload(entry.entry_id)
         assert write.await_count == 0
+        assert color_write.await_count == 0

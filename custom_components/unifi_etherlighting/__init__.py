@@ -13,9 +13,13 @@ from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .api.adapters.unifi_os_controller import UniFiOsControllerAdapter
 from .api.adapters.unifi_os_device import UniFiOsDeviceAdapter
+from .api.adapters.unifi_os_etherlighting import (
+    UniFiOsEtherlightingSettingsAdapter,
+)
 from .api.auth import UniFiAuthSession
 from .api.client import UniFiApiClient
 from .brightness import BrightnessService
+from .color import EtherlightingColorService
 from .const import (
     CONF_HOST,
     CONF_PASSWORD,
@@ -32,6 +36,7 @@ PLATFORMS: list[Platform] = [
     Platform.NUMBER,
     Platform.SWITCH,
     Platform.SELECT,
+    Platform.LIGHT,
 ]
 
 
@@ -44,6 +49,8 @@ class RuntimeData:
     controller: UniFiOsControllerAdapter
     adapter: UniFiOsDeviceAdapter
     brightness_service: BrightnessService
+    color_settings: UniFiOsEtherlightingSettingsAdapter
+    color_service: EtherlightingColorService
     controller_unique_id: str
 
 
@@ -74,9 +81,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     controller = UniFiOsControllerAdapter(client)
     adapter = UniFiOsDeviceAdapter(client)
+    color_settings = UniFiOsEtherlightingSettingsAdapter(client)
     brightness_service = BrightnessService(auth, controller, adapter)
+    color_service = EtherlightingColorService(
+        auth, controller, adapter, color_settings
+    )
     coordinator = EtherlightingDataUpdateCoordinator(
-        hass, entry, controller, adapter, brightness_service
+        hass,
+        entry,
+        controller,
+        adapter,
+        brightness_service,
+        color_settings,
+        color_service,
     )
     entry.runtime_data = RuntimeData(
         coordinator=coordinator,
@@ -84,6 +101,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         controller=controller,
         adapter=adapter,
         brightness_service=brightness_service,
+        color_settings=color_settings,
+        color_service=color_service,
         controller_unique_id=entry.unique_id or entry.entry_id,
     )
 

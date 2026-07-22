@@ -178,6 +178,16 @@ def build_mode_write_payload(
     return build_etherlighting_write_payload(current_device, {"mode": mode})
 
 
+def build_etherlighting_refresh_payload(
+    current_device: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Build the UI's accompanying no-op Device payload for a palette write."""
+    current_mode = _etherlighting_value(current_device, "mode")
+    return build_etherlighting_write_payload(
+        current_device, {"mode": current_mode}
+    )
+
+
 class BrightnessWriteOutcome(StrEnum):
     """Outcome shared by all verified Etherlighting control writes."""
 

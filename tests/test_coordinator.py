@@ -9,6 +9,10 @@ from custom_components.unifi_etherlighting.const import DOMAIN
 from custom_components.unifi_etherlighting.coordinator import (
     EtherlightingDataUpdateCoordinator,
 )
+from custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting import (
+    NetworkLabel,
+    parse_etherlighting_settings_response,
+)
 
 
 class FakeController:
@@ -41,6 +45,24 @@ class FakeService:
         return False
 
 
+class FakeColorSettings:
+    async def async_read_settings(self, site: str):
+        return parse_etherlighting_settings_response(
+            json.loads(
+                (
+                    Path(__file__).parent
+                    / "fixtures/etherlighting_settings_read.json"
+                ).read_text()
+            )
+        )
+
+    async def async_read_network_labels(self, site: str):
+        data = json.loads(
+            (Path(__file__).parent / "fixtures/networkconf_read.json").read_text()
+        )["data"]
+        return tuple(NetworkLabel(item["_id"], item["name"]) for item in data)
+
+
 async def test_coordinator_reads_version_and_devices_without_writing(hass) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -53,6 +75,8 @@ async def test_coordinator_reads_version_and_devices_without_writing(hass) -> No
         entry,
         FakeController(),
         devices,
+        FakeService(),  # type: ignore[arg-type]
+        FakeColorSettings(),  # type: ignore[arg-type]
         FakeService(),  # type: ignore[arg-type]
     )
     await coordinator.async_refresh()
@@ -70,6 +94,14 @@ async def test_coordinator_reads_version_and_devices_without_writing(hass) -> No
     assert coordinator.data.devices[0].mode_read_supported
     assert coordinator.data.devices[0].mode_write_supported.value == "confirmed"
     assert coordinator.data.devices[0].mode_write_ready
+    assert len(coordinator.data.colors) == 10
+    assert len(
+        [color for color in coordinator.data.colors if color.category == "network"]
+    ) == 5
+    assert len(
+        [color for color in coordinator.data.colors if color.category == "speed"]
+    ) == 5
+    assert coordinator.data.colors[0].raw_color_hex == "0544FF"
     assert any(
         item.capability == "brightness" and item.state.value == "confirmed"
         for item in coordinator.data.capabilities
@@ -80,6 +112,14 @@ async def test_coordinator_reads_version_and_devices_without_writing(hass) -> No
     )
     assert any(
         item.capability == "mode" and item.state.value == "confirmed"
+        for item in coordinator.data.capabilities
+    )
+    assert any(
+        item.capability == "network_color" and item.state.value == "confirmed"
+        for item in coordinator.data.capabilities
+    )
+    assert any(
+        item.capability == "speed_color" and item.state.value == "confirmed"
         for item in coordinator.data.capabilities
     )
     assert coordinator.data.write_capability == "ready"

@@ -1,0 +1,122 @@
+{
+  "session_id": "color_capture_001",
+  "capture_source": "unifi_network_web_ui",
+  "captured_at": "2026-07-22T11:00:00+02:00",
+  "version_context": {
+    "controller_type": "unifi_os",
+    "network_application_version": "10.5.62",
+    "device_type": "usw",
+    "device_model": "USWED72",
+    "device_firmware": "7.4.1.16850"
+  },
+  "reads": {
+    "settings": {
+      "method": "GET",
+      "path": "/proxy/network/api/s/site_001/get/setting",
+      "status": 200,
+      "meta_rc": "ok",
+      "selected_object_key": "ether_lighting",
+      "selected_fields": {
+        "network_defaults": "array",
+        "network_overrides": "array",
+        "speed_defaults": "array",
+        "speed_overrides": "array"
+      }
+    },
+    "network_labels": {
+      "method": "GET",
+      "path": "/proxy/network/api/s/site_001/rest/networkconf",
+      "status": 200,
+      "meta_rc": "ok",
+      "selected_fields": ["_id", "name"]
+    }
+  },
+  "writes": {
+    "settings": {
+      "method": "POST",
+      "path": "/proxy/network/api/s/site_001/set/setting/ether_lighting",
+      "header_names": ["Content-Type", "X-CSRF-Token"],
+      "status": 200,
+      "meta_rc": "ok",
+      "body_fields": ["key", "network_overrides", "speed_overrides"]
+    },
+    "device_refresh": {
+      "method": "PUT",
+      "path": "/proxy/network/api/s/site_001/rest/device/device_001",
+      "header_names": ["Content-Type", "X-CSRF-Token"],
+      "status": 200,
+      "meta_rc": "ok",
+      "ether_lighting_unchanged": true
+    }
+  },
+  "sequences": {
+    "network": {
+      "target_key": "network_001",
+      "changed_path": "network_overrides[network_001].raw_color_hex",
+      "before": "0544FF",
+      "write_forward": {
+        "requested": "0644FF",
+        "network_overrides": [
+          {"key": "network_002", "raw_color_hex": "FF00EE"},
+          {"key": "network_003", "raw_color_hex": "FF0000"},
+          {"key": "network_004", "raw_color_hex": "FFEF14"},
+          {"key": "network_001", "raw_color_hex": "0644FF"}
+        ],
+        "speed_overrides": [],
+        "status": 200,
+        "meta_rc": "ok"
+      },
+      "read_after": "0644FF",
+      "write_reverse": {
+        "requested": "0544FF",
+        "network_overrides": [
+          {"key": "network_002", "raw_color_hex": "FF00EE"},
+          {"key": "network_003", "raw_color_hex": "FF0000"},
+          {"key": "network_004", "raw_color_hex": "FFEF14"},
+          {"key": "network_001", "raw_color_hex": "0544FF"}
+        ],
+        "speed_overrides": [],
+        "status": 200,
+        "meta_rc": "ok"
+      },
+      "final": "0544FF"
+    },
+    "speed": {
+      "target_key": "FE",
+      "changed_path": "speed_overrides[FE].raw_color_hex",
+      "before": "FFC105",
+      "write_forward": {
+        "requested": "FEC105",
+        "network_overrides_preserved": true,
+        "speed_overrides": [
+          {"key": "FE", "raw_color_hex": "FEC105"}
+        ],
+        "status": 200,
+        "meta_rc": "ok"
+      },
+      "read_after": "FEC105",
+      "write_reverse": {
+        "requested": "FFC105",
+        "network_overrides_preserved": true,
+        "speed_overrides": [],
+        "status": 200,
+        "meta_rc": "ok"
+      },
+      "final": "FFC105"
+    }
+  },
+  "unchanged_device_state": {
+    "mode": "network",
+    "brightness": 30,
+    "behavior": "steady",
+    "led_mode": "etherlighting"
+  },
+  "safety": {
+    "ui_triggered_capture_writes_only": true,
+    "manually_constructed_capture_requests": false,
+    "network_assignments_changed": false,
+    "port_configuration_changed": false,
+    "sensitive_values_retained": false,
+    "final_state_restored": true
+  }
+}

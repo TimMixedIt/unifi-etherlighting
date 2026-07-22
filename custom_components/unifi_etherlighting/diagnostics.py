@@ -36,6 +36,12 @@ _ALLOWED_KEYS = frozenset(
         "mode_read_supported",
         "mode_write_supported",
         "mode_write_ready",
+        "network_color_read_supported",
+        "network_color_write_supported",
+        "network_color_write_ready",
+        "speed_color_read_supported",
+        "speed_color_write_supported",
+        "speed_color_write_ready",
         "options",
     }
 )
@@ -136,6 +142,44 @@ async def async_get_config_entry_diagnostics(
             data.devices, "mode_write_supported"
         ),
         "mode_write_ready": any(device.mode_write_ready for device in data.devices),
+        "network_color_read_supported": any(
+            color.category == "network" and color.read_supported
+            for color in data.colors
+        ),
+        "network_color_write_supported": (
+            "confirmed"
+            if any(
+                color.category == "network"
+                and color.write_supported.value == "confirmed"
+                for color in data.colors
+            )
+            else "unsupported"
+        ),
+        "network_color_write_ready": any(
+            color.category == "network"
+            and color.write_ready
+            and not color.write_blocked
+            for color in data.colors
+        ),
+        "speed_color_read_supported": any(
+            color.category == "speed" and color.read_supported
+            for color in data.colors
+        ),
+        "speed_color_write_supported": (
+            "confirmed"
+            if any(
+                color.category == "speed"
+                and color.write_supported.value == "confirmed"
+                for color in data.colors
+            )
+            else "unsupported"
+        ),
+        "speed_color_write_ready": any(
+            color.category == "speed"
+            and color.write_ready
+            and not color.write_blocked
+            for color in data.colors
+        ),
         "last_successful_read": (
             data.last_successful_update.isoformat()
             if data.last_successful_update

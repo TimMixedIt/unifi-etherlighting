@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "rc": "ok"
+  },
+  "data": [
+    {
+      "key": "ether_lighting",
+      "network_defaults": [
+        {"raw_color_hex": "0544ff", "key": "network_001"},
+        {"raw_color_hex": "ffffff", "key": "none"},
+        {"raw_color_hex": "ff05ef", "key": "network_002"},
+        {"raw_color_hex": "ff6c14", "key": "network_003"},
+        {"raw_color_hex": "5eff14", "key": "network_004"},
+        {"raw_color_hex": "14ffff", "key": "network_005"}
+      ],
+      "network_overrides": [
+        {"raw_color_hex": "ff00ee", "key": "network_002"},
+        {"raw_color_hex": "ff0000", "key": "network_003"},
+        {"raw_color_hex": "FFEF14", "key": "network_004"},
+        {"raw_color_hex": "0544FF", "key": "network_001"}
+      ],
+      "speed_defaults": [
+        {"raw_color_hex": "FFC105", "key": "10M"},
+        {"raw_color_hex": "FFC105", "key": "FE"},
+        {"raw_color_hex": "FFFFFF", "key": "GbE"},
+        {"raw_color_hex": "0515FF", "key": "2.5GbE"},
+        {"raw_color_hex": "FF6305", "key": "5GbE"},
+        {"raw_color_hex": "FFFFFF", "key": "10GbE"},
+        {"raw_color_hex": "0572FF", "key": "25GbE"},
+        {"raw_color_hex": "5305FF", "key": "40GbE"},
+        {"raw_color_hex": "32FFD9", "key": "100GbE"}
+      ],
+      "speed_overrides": []
+    }
+  ]
+}

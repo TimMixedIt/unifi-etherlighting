@@ -8,6 +8,7 @@ from custom_components.unifi_etherlighting.api.models import (
     brightness_capability_status,
     brightness_read_is_supported,
     capabilities_for_runtime,
+    color_read_is_supported,
     current_capture_capabilities,
     mode_capability_status,
     mode_read_is_supported,
@@ -25,12 +26,15 @@ def test_brightness_write_is_confirmed_for_exact_capture() -> None:
     assert evidence["mode"].evidence is EvidenceLevel.REVERSIBLE
     assert evidence["enabled"].evidence is EvidenceLevel.CAPTURED
     assert evidence["port_control"].state is CapabilityState.UNSUPPORTED
-    assert evidence["network_color"].state is CapabilityState.CANDIDATE
+    assert evidence["network_color"].state is CapabilityState.CONFIRMED
+    assert evidence["network_color"].evidence is EvidenceLevel.REVERSIBLE
+    assert evidence["speed_color"].state is CapabilityState.CONFIRMED
+    assert evidence["speed_color"].evidence is EvidenceLevel.REVERSIBLE
     assert [
         item.capability
         for item in evidence.values()
         if item.state is CapabilityState.CONFIRMED
-    ] == ["brightness", "behavior", "mode"]
+    ] == ["brightness", "behavior", "mode", "network_color", "speed_color"]
 
 
 def test_missing_network_application_version_prevents_confirmed() -> None:
@@ -81,6 +85,7 @@ def test_runtime_compatibility_has_no_wildcards() -> None:
     assert brightness_read_is_supported("10.5.62", exact)
     assert behavior_read_is_supported("10.5.62", exact)
     assert mode_read_is_supported("10.5.62", exact)
+    assert color_read_is_supported("10.5.62", exact)
     exact_status = brightness_capability_status("10.5.62", exact)
     assert exact_status.read_supported
     assert exact_status.write_supported is CapabilityState.CONFIRMED
@@ -100,6 +105,7 @@ def test_runtime_compatibility_has_no_wildcards() -> None:
         assert not brightness_read_is_supported(version, changed)
         assert not behavior_read_is_supported(version, changed)
         assert not mode_read_is_supported(version, changed)
+        assert not color_read_is_supported(version, changed)
         runtime = {
             item.capability: item
             for item in capabilities_for_runtime(version, (changed,))
@@ -107,3 +113,5 @@ def test_runtime_compatibility_has_no_wildcards() -> None:
         assert runtime["brightness"].state is CapabilityState.CANDIDATE
         assert runtime["behavior"].state is CapabilityState.CANDIDATE
         assert runtime["mode"].state is CapabilityState.CANDIDATE
+        assert runtime["network_color"].state is CapabilityState.CANDIDATE
+        assert runtime["speed_color"].state is CapabilityState.CANDIDATE

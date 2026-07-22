@@ -17,7 +17,8 @@ device_firmware=7.4.1.16850
 | `behavior` | confirmed | reversible | `switch` |
 | `mode` | confirmed | reversible | `select` |
 | `enabled` | candidate | captured | keine |
-| `network_color` | candidate | captured | keine |
+| `network_color` | confirmed | reversible | `light` pro Network/VLAN |
+| `speed_color` | confirmed | reversible | `light` pro bestätigter Geschwindigkeit |
 | `port_control` | unsupported | unknown | keine |
 
 Die erfolgreiche Device-PUT-Route bleibt selbst eine technische Candidate-Evidenz und wird nicht als Raw-API-Capability veröffentlicht.
@@ -30,6 +31,8 @@ brightness_write_supported=confirmed
 brightness_write_ready=true
 ```
 
-Dasselbe Modell gilt als `behavior_*` und `mode_*`. Behavior akzeptiert ausschließlich `steady` und `breath`; Mode ausschließlich `network` und `speed`.
+Dasselbe Modell gilt als `behavior_*`, `mode_*` und für die site-weiten Farbsteuerungen. Behavior akzeptiert ausschließlich `steady` und `breath`; Mode ausschließlich `network` und `speed`.
+
+Network-Farben werden aus `network_defaults` plus `network_overrides` gebildet und über den bestätigten Network-Konfigurationsread benannt. Speed-Farben werden aus `speed_defaults` plus `speed_overrides` gebildet. Produktiv angeboten werden nur die fünf in der validierten Switch-Oberfläche sichtbaren Schlüssel `FE`, `GbE`, `2.5GbE`, `5GbE` und `10GbE`.
 
 Alle vom UI-Write verwendeten Werte stammen entweder aus dem bestätigten Device-Read oder aus der live bestätigten UI-Forminitialisierung für `lcm_night_mode_enabled`. Ein vorhandener boolescher Wert wird bewahrt; nur bei Abwesenheit wird wie in der UI `false` initialisiert.
