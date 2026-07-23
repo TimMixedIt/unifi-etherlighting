@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 import logging
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResultType
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.unifi_etherlighting.api.errors import (
     UniFiAuthenticationError,
@@ -23,6 +26,8 @@ from custom_components.unifi_etherlighting.config_flow import (
 )
 from custom_components.unifi_etherlighting.const import DOMAIN
 
+FIXTURES = Path(__file__).parent / "fixtures"
+
 CONNECTION = {
     "host": "controller.invalid",
     "port": 443,
@@ -32,12 +37,7 @@ CONNECTION = {
     "password": "secret",
     "site": "site_001",
 }
-DEVICE = {
-    "_id": "device_001",
-    "model": "USWED72",
-    "version": "7.4.1.16850",
-    "ether_lighting": {"brightness": 30},
-}
+DEVICE = json.loads((FIXTURES / "device_read_brightness_30.json").read_text())
 
 
 async def _start_validated_flow(hass):
@@ -89,6 +89,98 @@ async def test_duplicate_controller_is_aborted(hass) -> None:
     assert second["reason"] == "already_configured"
 
 
+async def test_reauth_updates_only_credentials_and_reloads(hass) -> None:
+    entry = MockConfigEntry(
+        version=2,
+        minor_version=1,
+        domain=DOMAIN,
+        title="UniFi Etherlighting",
+        data={
+            **CONNECTION,
+            "username": "old_user",
+            "password": "old_password",
+            "device_ids": ["device_001"],
+        },
+        source=config_entries.SOURCE_USER,
+        options={},
+        unique_id="controller.invalid:443",
+    )
+    entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.unifi_etherlighting.config_flow.ConfigFlow._async_validate_connection",
+        new=AsyncMock(return_value=(DEVICE,)),
+    ) as validate:
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={
+                "source": config_entries.SOURCE_REAUTH,
+                "entry_id": entry.entry_id,
+            },
+            data=dict(entry.data),
+        )
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "reauth_confirm"
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {"username": "new_user", "password": "new_password"},
+        )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert entry.data["username"] == "new_user"
+    assert entry.data["password"] == "new_password"
+    assert entry.data["site"] == "site_001"
+    assert entry.data["device_ids"] == ["device_001"]
+    validated = validate.await_args.args[0]
+    assert validated["username"] == "new_user"
+    assert validated["password"] == "new_password"
+
+
+async def test_reauth_rejects_bad_credentials_without_updating_entry(hass) -> None:
+    entry = MockConfigEntry(
+        version=2,
+        minor_version=1,
+        domain=DOMAIN,
+        title="UniFi Etherlighting",
+        data={
+            **CONNECTION,
+            "device_ids": ["device_001"],
+        },
+        source=config_entries.SOURCE_USER,
+        options={},
+        unique_id="controller.invalid:443",
+    )
+    entry.add_to_hass(hass)
+    original = dict(entry.data)
+
+    with patch(
+        "custom_components.unifi_etherlighting.config_flow.ConfigFlow._async_validate_connection",
+        new=AsyncMock(
+            side_effect=ValidationStageError(
+                ValidationStage.LOGIN,
+                UniFiAuthenticationError("synthetic rejection"),
+            )
+        ),
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={
+                "source": config_entries.SOURCE_REAUTH,
+                "entry_id": entry.entry_id,
+            },
+            data=dict(entry.data),
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {"username": "user", "password": "wrong"},
+        )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "invalid_auth"}
+    assert entry.data == original
+
+
 async def test_no_compatible_devices_stays_in_user_step(hass) -> None:
     with patch(
         "custom_components.unifi_etherlighting.config_flow.ConfigFlow._async_validate_connection",
@@ -136,7 +228,7 @@ async def test_successful_validation_is_not_masked_by_logout_failure(
 
     controller = MagicMock()
     controller.async_read_network_application_version = AsyncMock(
-        return_value="10.5.62"
+        return_value="10.5.66"
     )
     devices = MagicMock()
     devices.async_read_devices = AsyncMock(return_value=[DEVICE])
@@ -281,7 +373,7 @@ async def test_unexpected_validation_error_preserves_stage(hass, stage) -> None:
             return_value=devices,
         ),
         patch(
-            "custom_components.unifi_etherlighting.config_flow.brightness_read_is_supported",
+            "custom_components.unifi_etherlighting.config_flow.runtime_contract_is_supported",
             compatibility,
         ),
     ):

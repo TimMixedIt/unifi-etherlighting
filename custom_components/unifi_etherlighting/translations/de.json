@@ -16,9 +16,17 @@
       },
       "devices": {
         "title": "Etherlighting-Switches auswählen",
-        "description": "Nur Switches mit exakt bestätigter Lese-, Schreib-, Modell-, Firmware- und Network-Struktur stehen zur Auswahl.",
+        "description": "Nur Switches mit unterstützter Network-API-Generation und vollständig passendem Etherlighting-Live-Schema stehen zur Auswahl.",
         "data": {
           "device_ids": "Kompatible Switches"
+        }
+      },
+      "reauth_confirm": {
+        "title": "UniFi Etherlighting neu verbinden",
+        "description": "Home Assistant konnte sich lokal nicht mehr authentifizieren. Gib die aktuellen UniFi-Zugangsdaten ein; dabei werden keine Controller-Einstellungen verändert.",
+        "data": {
+          "username": "Benutzername",
+          "password": "Passwort"
         }
       }
     },
@@ -36,14 +44,15 @@
       "timeout": "Zeitüberschreitung beim Controller.",
       "site_not_found": "Die UniFi Site konnte nicht gelesen werden.",
       "no_devices": "Für diese UniFi Site wurden keine Geräte geliefert.",
-      "no_compatible_devices": "Kein Switch entspricht der exakt bestätigten Etherlighting-Steuerkombination.",
-      "unsupported_network_version": "Diese Network-Application-Version ist nicht für Etherlighting-Schreibzugriffe bestätigt.",
+      "no_compatible_devices": "Kein Switch liefert den vollständigen unterstützten Etherlighting-API-Vertrag.",
+      "unsupported_network_version": "Diese Network-Application verwendet eine nicht unterstützte API-Generation.",
       "unsupported_firmware": "Die erkannte Switch-Firmware ist nicht für Etherlighting-Schreibzugriffe bestätigt.",
       "unknown": "Ein unerwarteter Fehler ist aufgetreten.",
       "invalid_site": "Die UniFi Site darf nur Buchstaben, Zahlen, Unterstriche und Bindestriche enthalten."
     },
     "abort": {
       "already_configured": "Dieser Controller ist bereits eingerichtet.",
+      "reauth_successful": "Die Authentifizierung wurde erfolgreich aktualisiert.",
       "unknown": "Der validierte Verbindungszustand des Einrichtungsablaufs ging verloren."
     }
   },
@@ -103,12 +112,12 @@
       "description": "Der lokale Controller hat die authentifizierte Sitzung abgelehnt oder konnte sie nicht erneuern."
     },
     "network_version_unconfirmed": {
-      "title": "Network-Application-Version nicht bestätigt",
-      "description": "Etherlighting-Schreibzugriffe sind deaktiviert, weil die Laufzeitversion nicht exakt der validierten Version entspricht."
+      "title": "Network-API-Generation nicht unterstützt",
+      "description": "Etherlighting-Schreibzugriffe sind deaktiviert, weil die erkannte Network-Version außerhalb der unterstützten API-Generation liegt."
     },
     "unsupported_combination": {
-      "title": "Switch-Kombination nicht unterstützt",
-      "description": "Controller, Modell, Firmware oder Etherlighting-Schema liegen außerhalb der exakt bestätigten Kombination."
+      "title": "Etherlighting-API-Vertrag nicht unterstützt",
+      "description": "Controller oder Switch liefern nicht mehr das vollständig validierte Etherlighting-Schema."
     },
     "etherlighting_field_missing": {
       "title": "Etherlighting-Steuerfeld fehlt",

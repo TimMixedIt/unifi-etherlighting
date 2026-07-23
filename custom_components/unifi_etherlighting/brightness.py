@@ -29,6 +29,12 @@ from .api.models import (
     brightness_read_is_supported,
     mode_read_is_supported,
 )
+from .compatibility import (
+    CONFIG_NETWORK_WRITE_FIELDS,
+    ETHER_LIGHTING_WRITE_FIELDS,
+    TOP_LEVEL_WRITE_FIELDS,
+    UI_DEFAULTED_TOP_LEVEL_FIELDS,
+)
 from .const import (
     BRIGHTNESS_MAXIMUM,
     BRIGHTNESS_MINIMUM,
@@ -36,31 +42,7 @@ from .const import (
     WRITE_CAPABILITY_ENABLED,
 )
 
-_CONFIG_NETWORK_FIELDS = (
-    "type",
-    "ip",
-    "netmask",
-    "gateway",
-    "dns1",
-    "dns2",
-    "dnssuffix",
-    "bonding_enabled",
-)
-_ETHER_LIGHTING_FIELDS = ("mode", "brightness", "behavior", "led_mode")
-_TOP_LEVEL_FIELDS = (
-    "lcm_brightness",
-    "lcm_brightness_override",
-    "lcm_night_mode_begins",
-    "lcm_night_mode_ends",
-    "lcm_orientation_override",
-    "mgmt_network_id",
-    "name",
-    "snmp_contact",
-    "snmp_location",
-    "stp_priority",
-)
 # Live-confirmed Network UI form initialization; see the sanitized source capture.
-_UI_DEFAULTED_TOP_LEVEL_FIELDS = {"lcm_night_mode_enabled": False}
 _STABLE_READ_FIELDS = (
     "type",
     "model",
@@ -133,7 +115,7 @@ def build_etherlighting_write_payload(
         )
 
     projected_ether = _project_required_fields(
-        ether_lighting, _ETHER_LIGHTING_FIELDS, "ether_lighting"
+        ether_lighting, ETHER_LIGHTING_WRITE_FIELDS, "ether_lighting"
     )
     for observed_field in _CONTROL_FIELDS:
         _etherlighting_value(current_device, observed_field)
@@ -142,9 +124,9 @@ def build_etherlighting_write_payload(
     projected_ether[field] = value
 
     payload = _project_required_fields(
-        current_device, _TOP_LEVEL_FIELDS, "top-level write"
+        current_device, TOP_LEVEL_WRITE_FIELDS, "top-level write"
     )
-    for ui_field, ui_default in _UI_DEFAULTED_TOP_LEVEL_FIELDS.items():
+    for ui_field, ui_default in UI_DEFAULTED_TOP_LEVEL_FIELDS.items():
         ui_value = current_device[ui_field] if ui_field in current_device else ui_default
         if not isinstance(ui_value, bool):
             raise VerificationError(
@@ -152,7 +134,7 @@ def build_etherlighting_write_payload(
             )
         payload[ui_field] = ui_value
     payload["config_network"] = _project_required_fields(
-        config_network, _CONFIG_NETWORK_FIELDS, "config_network"
+        config_network, CONFIG_NETWORK_WRITE_FIELDS, "config_network"
     )
     payload["ether_lighting"] = projected_ether
     return payload
@@ -327,7 +309,7 @@ class BrightnessService:
         }[field]
         if not support_check(network_version, current):
             raise UnsupportedCompatibilityError(
-                f"{field} is not confirmed for this exact runtime compatibility tuple"
+                f"{field} is unavailable because the runtime API contract did not match"
             )
         before = _etherlighting_value(current, field)
         if before == requested:

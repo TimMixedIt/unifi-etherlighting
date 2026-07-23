@@ -1,29 +1,25 @@
-# Capability-Modell
+# Capability model
 
-`EvidenceLevel` beschreibt die Evidenzqualität: `unknown`, `model_only`, `captured`, `write_accepted`, `read_verified`, `reversible`. `CapabilityState` beschreibt die Produktfreigabe: `candidate`, `confirmed`, `unsupported`.
+`EvidenceLevel` records how a controller behavior was established:
+`unknown`, `model_only`, `captured`, `write_accepted`, `read_verified` or
+`reversible`.
 
-Der exakte Read-Support-Schlüssel lautet:
+`CapabilityState` records the product decision: `candidate`, `confirmed` or
+`unsupported`.
+
+## Runtime decision
+
+Historical captures remain tied to their exact controller/model/firmware
+combination. Production support is derived separately from:
 
 ```text
-controller_type=unifi_os
-network_application_version=10.5.62
-device_model=USWED72
-device_firmware=7.4.1.16850
+supported Network API generation
++ live field types and allowed values
++ complete UI-observed write-source schema
++ central write release gate
 ```
 
-| Capability | State | Evidence | Produktive Entität |
-|---|---|---|---|
-| `brightness` | confirmed | reversible | `number` |
-| `behavior` | confirmed | reversible | `switch` |
-| `mode` | confirmed | reversible | `select` |
-| `enabled` | candidate | captured | keine |
-| `network_color` | confirmed | reversible | `light` pro Network/VLAN |
-| `speed_color` | confirmed | reversible | `light` pro bestätigter Geschwindigkeit |
-| `port_control` | unsupported | unknown | keine |
-
-Die erfolgreiche Device-PUT-Route bleibt selbst eine technische Candidate-Evidenz und wird nicht als Raw-API-Capability veröffentlicht.
-
-Jede produktive Steuerung wird in drei unabhängige Zustände getrennt:
+This produces independent states such as:
 
 ```text
 brightness_read_supported=true
@@ -31,8 +27,23 @@ brightness_write_supported=confirmed
 brightness_write_ready=true
 ```
 
-Dasselbe Modell gilt als `behavior_*`, `mode_*` und für die site-weiten Farbsteuerungen. Behavior akzeptiert ausschließlich `steady` und `breath`; Mode ausschließlich `network` und `speed`.
+A readable field may remain available while its write is disabled because a
+different required payload field disappeared.
 
-Network-Farben werden aus `network_defaults` plus `network_overrides` gebildet und über den bestätigten Network-Konfigurationsread benannt. Speed-Farben werden aus `speed_defaults` plus `speed_overrides` gebildet. Produktiv angeboten werden nur die fünf in der validierten Switch-Oberfläche sichtbaren Schlüssel `FE`, `GbE`, `2.5GbE`, `5GbE` und `10GbE`.
+| Capability | Required live contract | Product entity |
+|---|---|---|
+| `brightness` | integer 1–100 | `number` |
+| `behavior` | `steady` or `breath` | `switch` |
+| `mode` | `network` or `speed` | `select` |
+| `network_color` | validated settings and network-label schemas | `light` per network |
+| `speed_color` | validated settings schema and visible speed key | `light` per speed |
+| `enabled` | not independently validated | none |
+| `port_control` | no evidence | none |
 
-Alle vom UI-Write verwendeten Werte stammen entweder aus dem bestätigten Device-Read oder aus der live bestätigten UI-Forminitialisierung für `lcm_night_mode_enabled`. Ein vorhandener boolescher Wert wird bewahrt; nur bei Abwesenheit wird wie in der UI `false` initialisiert.
+Network colors combine `network_defaults` with `network_overrides`. Speed
+colors combine `speed_defaults` with `speed_overrides`; the productive keys are
+FE, GbE, 2.5GbE, 5GbE and 10GbE.
+
+`lcm_night_mode_enabled` is the only UI-observed write field allowed to be
+absent from the Device read. The real Network UI preserves an existing boolean
+and initializes a missing value to `false`; any other type fails closed.

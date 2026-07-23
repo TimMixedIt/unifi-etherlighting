@@ -15,6 +15,14 @@ except ImportError:  # pragma: no cover - enables local validation on older Pyth
 
 from typing import Any
 
+from ..compatibility import (
+    behavior_read_contract_is_supported,
+    brightness_read_contract_is_supported,
+    device_write_contract_is_supported,
+    mode_read_contract_is_supported,
+    network_version_is_supported,
+    runtime_contract_is_supported,
+)
 from ..const import WRITE_CAPABILITY_ENABLED
 
 
@@ -294,66 +302,55 @@ def compatibility_key_for_device(
 def brightness_read_is_supported(
     network_application_version: str, device: dict[str, Any]
 ) -> bool:
-    """Expose the read value only for the exact validated tuple and field path."""
-    ether_lighting = device.get("ether_lighting")
+    """Expose Brightness when the API generation and live schema match."""
     return (
-        compatibility_key_for_device(network_application_version, device)
-        == CURRENT_COMPATIBILITY
-        and isinstance(ether_lighting, dict)
-        and isinstance(ether_lighting.get("brightness"), int)
-        and not isinstance(ether_lighting.get("brightness"), bool)
+        network_version_is_supported(network_application_version)
+        and brightness_read_contract_is_supported(device)
     )
 
 
 def behavior_read_is_supported(
     network_application_version: str, device: dict[str, Any]
 ) -> bool:
-    """Expose behavior only for the exact tuple and confirmed values."""
-    ether_lighting = device.get("ether_lighting")
+    """Expose behavior when the API generation and live schema match."""
     return (
-        compatibility_key_for_device(network_application_version, device)
-        == CURRENT_COMPATIBILITY
-        and isinstance(ether_lighting, dict)
-        and ether_lighting.get("behavior") in {"steady", "breath"}
+        network_version_is_supported(network_application_version)
+        and behavior_read_contract_is_supported(device)
     )
 
 
 def mode_read_is_supported(
     network_application_version: str, device: dict[str, Any]
 ) -> bool:
-    """Expose mode only for the exact tuple and confirmed values."""
-    ether_lighting = device.get("ether_lighting")
+    """Expose mode when the API generation and live schema match."""
     return (
-        compatibility_key_for_device(network_application_version, device)
-        == CURRENT_COMPATIBILITY
-        and isinstance(ether_lighting, dict)
-        and ether_lighting.get("mode") in {"network", "speed"}
+        network_version_is_supported(network_application_version)
+        and mode_read_contract_is_supported(device)
     )
 
 
 def color_read_is_supported(
     network_application_version: str, device: dict[str, Any]
 ) -> bool:
-    """Allow site color controls only for the exact validated switch tuple."""
-    return (
-        compatibility_key_for_device(network_application_version, device)
-        == CURRENT_COMPATIBILITY
-    )
+    """Allow site colors only when the complete no-op Device contract matches."""
+    return runtime_contract_is_supported(network_application_version, device)
 
 
-def _capability_status(read_supported: bool) -> ControlCapabilityStatus:
+def _capability_status(
+    read_supported: bool, write_contract_supported: bool
+) -> ControlCapabilityStatus:
     return ControlCapabilityStatus(
         read_supported=read_supported,
         write_supported=(
             CapabilityState.UNSUPPORTED
-            if not read_supported
+            if not write_contract_supported
             else (
                 CapabilityState.CONFIRMED
                 if WRITE_CAPABILITY_ENABLED
                 else CapabilityState.CANDIDATE
             )
         ),
-        write_ready=read_supported and WRITE_CAPABILITY_ENABLED,
+        write_ready=write_contract_supported and WRITE_CAPABILITY_ENABLED,
     )
 
 
@@ -364,7 +361,11 @@ def brightness_capability_status(
     read_supported = brightness_read_is_supported(
         network_application_version, device
     )
-    return _capability_status(read_supported)
+    return _capability_status(
+        read_supported,
+        network_version_is_supported(network_application_version)
+        and device_write_contract_is_supported(device),
+    )
 
 
 def behavior_capability_status(
@@ -372,7 +373,9 @@ def behavior_capability_status(
 ) -> ControlCapabilityStatus:
     """Return behavior read, write-evidence, and readiness states."""
     return _capability_status(
-        behavior_read_is_supported(network_application_version, device)
+        behavior_read_is_supported(network_application_version, device),
+        network_version_is_supported(network_application_version)
+        and device_write_contract_is_supported(device),
     )
 
 
@@ -381,14 +384,16 @@ def mode_capability_status(
 ) -> ControlCapabilityStatus:
     """Return mode read, write-evidence, and readiness states."""
     return _capability_status(
-        mode_read_is_supported(network_application_version, device)
+        mode_read_is_supported(network_application_version, device),
+        network_version_is_supported(network_application_version)
+        and device_write_contract_is_supported(device),
     )
 
 
 def capabilities_for_runtime(
     network_application_version: str, devices: tuple[dict[str, Any], ...]
 ) -> tuple[CapabilityEvidence, ...]:
-    """Downgrade controls unless a selected Device matches exactly."""
+    """Bind captured evidence to a runtime that passes the live API contract."""
     capabilities = list(current_capture_capabilities())
     support_checks = {
         "brightness": brightness_read_is_supported,
@@ -398,23 +403,61 @@ def capabilities_for_runtime(
         "speed_color": color_read_is_supported,
     }
     for capability_name, support_check in support_checks.items():
-        if any(support_check(network_application_version, device) for device in devices):
-            continue
         capability_index = next(
             index
             for index, capability in enumerate(capabilities)
             if capability.capability == capability_name
         )
         confirmed = capabilities[capability_index]
+        matching_device = next(
+            (
+                device
+                for device in devices
+                if support_check(network_application_version, device)
+            ),
+            None,
+        )
+        if matching_device is None:
+            capabilities[capability_index] = CapabilityEvidence(
+                capability=capability_name,
+                state=CapabilityState.CANDIDATE,
+                evidence=EvidenceLevel.CAPTURED,
+                compatibility=ControllerCompatibilityKey(
+                    "unifi_os",
+                    network_application_version or None,
+                    "unknown",
+                    "unknown",
+                ),
+                observed_json_path=confirmed.observed_json_path,
+                observed_values=(),
+                notes=(
+                    "The runtime API generation or required live schema "
+                    "does not match the supported contract.",
+                ),
+            )
+            continue
+        runtime_key = compatibility_key_for_device(
+            network_application_version, matching_device
+        )
+        exact_capture = runtime_key == CURRENT_COMPATIBILITY
         capabilities[capability_index] = CapabilityEvidence(
             capability=capability_name,
-            state=CapabilityState.CANDIDATE,
-            evidence=EvidenceLevel.CAPTURED,
-            compatibility=ControllerCompatibilityKey(
-                "unifi_os", network_application_version or None, "unknown", "unknown"
+            state=CapabilityState.CONFIRMED,
+            evidence=(
+                confirmed.evidence
+                if exact_capture
+                else EvidenceLevel.READ_VERIFIED
             ),
+            compatibility=runtime_key,
             observed_json_path=confirmed.observed_json_path,
-            observed_values=(),
-            notes=("Runtime compatibility does not match the exact confirmed tuple.",),
+            observed_values=confirmed.observed_values if exact_capture else (),
+            notes=(
+                confirmed.notes
+                if exact_capture
+                else (
+                    "The runtime passed the version-family and complete "
+                    "live-schema compatibility contract.",
+                )
+            ),
         )
     return tuple(capabilities)

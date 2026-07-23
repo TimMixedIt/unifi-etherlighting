@@ -1,18 +1,29 @@
-# Sicherheitsmodell Phase F
+# Security model
 
-- Ausschließlich die live bestätigten Login-, Logout-, Versions-, Device-Read- und Device-Write-Pfade sind implementiert.
-- Relative Pfade werden intern gebaut; Site- und Device-Parameter werden URL-kodiert.
-- Zugangsdaten werden nur für den bestätigten Login verwendet und nie geloggt.
-- Die dedizierte Home-Assistant-ClientSession hält Session-Cookies nur im Speicher.
-- Der Cookie-Name `TOKEN` und Headername `X-CSRF-Token` sind bestätigt; ihre Werte werden weder persistiert noch diagnostisch ausgegeben.
-- Diagnostics sind allowlist-basiert und enthalten weder Host, Site, Device-ID, Zugangsdaten, Payloads noch vollständige Responses.
-- Config-Flow-Fehler werden nur mit Validierungsphase, sicherer Fehlerkategorie, Python-Exception-Typ und optionaler dreistelliger HTTP-Statuszahl protokolliert. Exception-Texte, URLs, Header- und Body-Werte werden verworfen.
-- Setup und Polling führen ausschließlich Reads aus, einschließlich der bestätigten Etherlighting-Settings- und Network-Bezeichnungsreads.
-- Writes werden einmal gesendet, niemals automatisch wiederholt und immer per Device-Read klassifiziert.
-- Ein unbestimmtes Ergebnis sperrt weitere Writes für das betroffene Gerät.
-- Nur die exakte bestätigte Versionskombination kann Brightness, Breathing, Mode sowie Network- und Speed-Farben freigeben.
-- Pro Aktion darf exakt eines dieser bestätigten Felder geändert werden; Werte außerhalb der jeweiligen Allowlist brechen vor dem Write ab.
-- Ein Farb-Write bewahrt beide vollständigen Override-Arrays, ändert genau einen Farbwert und sendet danach den UI-beobachteten, fachlich unveränderten Device-Refresh. Beide Responses und beide unabhängigen Reads werden geprüft.
-- Kein SSH, keine Portsteuerung, kein Raw-API-Service, kein Cloud-Upload und keine externe Telemetrie.
+- Only capture-confirmed login, logout, version, Device, settings and network
+  configuration paths are implemented.
+- Site and Device path parameters are URL-encoded.
+- Credentials are used only for local login and are never logged.
+- Session cookies and CSRF data remain in the dedicated in-memory HTTP session.
+- Diagnostics are allowlist-based and exclude host, Site, Device IDs,
+  credentials, payloads and complete responses.
+- Config-flow logging contains only stage, safe category, exception type and an
+  optional HTTP status.
+- Setup, reauthentication validation and polling are read-only.
+- Authentication failures start Home Assistant reauthentication.
+- Compatible Network 10 updates are accepted only when the complete runtime
+  API and Device schema still match.
+- Unsupported API generations and changed schemas fail closed.
+- One action changes exactly one allowlisted semantic value.
+- Writes are sent once, never automatically retried and always followed by an
+  independent read.
+- An indeterminate result blocks later writes and creates a Repair.
+- Color writes preserve both override arrays, change one color and validate the
+  UI-observed no-op Device refresh.
+- No SSH, UniFi Cloud login, port control, raw API service, telemetry or
+  external debug upload exists.
 
-HTTP 401 oder 403 bei einem Read erlaubt genau eine erneute Authentifizierung und eine einmalige Wiederholung des Reads. Ein Write wird bei 401, 403, Timeout oder Verbindungsabbruch nicht wiederholt; stattdessen folgt ein Read des aktuellen Zustands.
+A read may retry once after a 401/403 by establishing a new local session. A
+write is never retried after an authentication error, timeout or disconnect;
+the integration reads the resulting state and classifies it as `applied`,
+`not_applied` or `indeterminate`.

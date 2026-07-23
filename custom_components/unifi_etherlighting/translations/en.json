@@ -16,9 +16,17 @@
       },
       "devices": {
         "title": "Select Etherlighting switches",
-        "description": "Only switches matching the exactly validated read, write, model, firmware, and Network schema are available.",
+        "description": "Only switches matching the supported Network API generation and complete live Etherlighting schema are available.",
         "data": {
           "device_ids": "Compatible switches"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect UniFi Etherlighting",
+        "description": "Home Assistant could no longer authenticate locally. Enter the current UniFi credentials; no controller setting will be changed.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
         }
       }
     },
@@ -36,14 +44,15 @@
       "timeout": "The controller timed out.",
       "site_not_found": "The UniFi Site could not be read.",
       "no_devices": "No devices were returned for this UniFi Site.",
-      "no_compatible_devices": "No switch matches the exactly confirmed Etherlighting control combination.",
-      "unsupported_network_version": "This Network Application version is not confirmed for Etherlighting writes.",
+      "no_compatible_devices": "No switch exposes the complete supported Etherlighting API contract.",
+      "unsupported_network_version": "This Network Application uses an unsupported API generation.",
       "unsupported_firmware": "The detected switch firmware is not confirmed for Etherlighting writes.",
       "unknown": "An unexpected error occurred.",
       "invalid_site": "The UniFi Site may only contain letters, numbers, underscores, and hyphens."
     },
     "abort": {
       "already_configured": "This controller is already configured.",
+      "reauth_successful": "Authentication was updated successfully.",
       "unknown": "The setup flow lost its validated connection state."
     }
   },
@@ -103,12 +112,12 @@
       "description": "The local controller rejected or could not restore the authenticated session."
     },
     "network_version_unconfirmed": {
-      "title": "Network Application version not confirmed",
-      "description": "Etherlighting writes are disabled because the runtime Network Application version is not the exact validated version."
+      "title": "Network API generation not supported",
+      "description": "Etherlighting writes are disabled because the detected Network version is outside the supported API generation."
     },
     "unsupported_combination": {
-      "title": "Switch combination not supported",
-      "description": "The detected controller, model, firmware, or Etherlighting schema is outside the exact confirmed tuple."
+      "title": "Etherlighting API contract not supported",
+      "description": "The detected controller or switch no longer exposes the complete validated Etherlighting schema."
     },
     "etherlighting_field_missing": {
       "title": "Etherlighting control field missing",

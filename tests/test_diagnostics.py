@@ -6,6 +6,9 @@ def test_diagnostics_allowlist_removes_credentials_hosts_and_ids() -> None:
         {
             "controller_type": "unifi_os",
             "network_application_version": None,
+            "compatibility_profile": "unifi_os_network_v10",
+            "network_api_generation_supported": True,
+            "contract_compatible_device_count": 1,
             "write_capability": "ready",
             "write_block_reason": None,
             "missing_confirmed_fields": [],
@@ -36,6 +39,9 @@ def test_diagnostics_allowlist_removes_credentials_hosts_and_ids() -> None:
         }
     )
     assert result["controller_type"] == "unifi_os"
+    assert result["compatibility_profile"] == "unifi_os_network_v10"
+    assert result["network_api_generation_supported"] is True
+    assert result["contract_compatible_device_count"] == 1
     assert result["write_capability"] == "ready"
     assert result["write_block_reason"] is None
     assert result["missing_confirmed_fields"] == []

@@ -1,14 +1,38 @@
-# Kompatibilität
+# Compatibility
 
-| Controller | Network App | Device-Typ | Modell | Firmware | Read-Support | Write-Support | Write-ready |
-|---|---|---|---|---|---|---|---|
-| UniFi OS | `10.5.62` | `usw` | `USWED72` | `7.4.1.16850` | `brightness`, `behavior`, `mode`, `network_color`, `speed_color` | `confirmed` | ja |
+## Runtime profile
 
-Die Prüfung verwendet einen exakten `ControllerCompatibilityKey`. Es gibt keine Wildcards für Network 10.x, Firmware 7.x, Modellfamilien oder ähnlich benannte Switches.
+The production gate is `unifi_os_network_v10`.
 
-Zusätzlich zur exakten Version muss das aktuelle Device-Objekt die bestätigten Werte für `brightness`, `behavior`, `mode` und `led_mode` sowie alle übrigen UI-Payload-Felder mit dem erwarteten Typ enthalten. Nur `lcm_night_mode_enabled` darf fehlen; dann greift ausschließlich der bestätigte UI-Initialwert `false`.
+| Check | Requirement |
+|---|---|
+| Controller | UniFi OS |
+| Network API generation | major 10, version 10.5.62 or newer |
+| Device identity | `type=usw`, non-empty Device ID, model and firmware |
+| Etherlighting reads | valid `brightness`, `behavior`, `mode`, `led_mode` |
+| Device write source | all UI-observed top-level and `config_network` fields present |
+| Colors | complete validated settings schema plus compatible witness Device |
 
-Weiterhin gesperrt:
+The Network version is parsed, not compared as an opaque string. Patch and
+minor updates inside Network 10 are accepted only after the live response and
+Device contract pass. Model and firmware values are reported for diagnostics,
+but are not used as brittle equality gates.
 
-- `enabled`: `candidate`
-- `port_control`: `unsupported`
+## Live-validated environments
+
+| Network App | Device type | Model | Firmware | Result |
+|---:|---|---|---|---|
+| 10.5.62 | `usw` | USWED72 | 7.4.1.16850 | reversible controls and colors |
+| 10.5.66 | `usw` | USWED72 | 7.4.1.16850 | reversible post-update validation |
+
+## Fail-closed behavior
+
+- A malformed version or Network version below 10.5.62 is unsupported.
+- A future Network major is unsupported until its API contract is validated.
+- A missing/changed read field disables that capability.
+- A missing full-write field keeps the readable value but disables its write.
+- A changed color/settings schema disables color entities.
+- A failed or ambiguous write is not retried and blocks subsequent writes.
+
+The integration therefore survives compatible routine updates without claiming
+that every future UniFi API is automatically safe.

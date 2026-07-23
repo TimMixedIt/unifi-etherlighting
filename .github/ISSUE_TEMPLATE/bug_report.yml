@@ -1,0 +1,66 @@
+name: Bug report
+description: Report a reproducible integration or UniFi update regression.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include credentials, addresses, IDs, cookies, tokens, CSRF values, raw responses or HAR files.
+  - type: input
+    id: integration_version
+    attributes:
+      label: Integration version
+      placeholder: 0.5.0
+    validations:
+      required: true
+  - type: input
+    id: home_assistant_version
+    attributes:
+      label: Home Assistant version
+    validations:
+      required: true
+  - type: input
+    id: network_version
+    attributes:
+      label: UniFi Network Application version
+    validations:
+      required: true
+  - type: input
+    id: switch_version
+    attributes:
+      label: Switch model and firmware
+    validations:
+      required: true
+  - type: dropdown
+    id: trigger
+    attributes:
+      label: When did the problem start?
+      options:
+        - After a UniFi update
+        - After an integration update
+        - During first setup
+        - During normal operation
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe expected and actual behavior without sensitive data.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted integration diagnostics
+      description: Attach only the allowlist-based diagnostics downloaded from Home Assistant.
+      render: json
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I removed credentials, addresses, IDs, cookies, tokens, CSRF values, raw responses and HAR data.
+          required: true

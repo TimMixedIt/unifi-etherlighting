@@ -69,8 +69,17 @@ class EtherlightingStatusSensor(EtherlightingDiagnosticEntity, SensorEntity):
         return self.coordinator.data.controller_status
 
     @property
-    def extra_state_attributes(self) -> dict[str, str]:
-        return _capability_map(self.coordinator.data)
+    def extra_state_attributes(self) -> dict[str, object]:
+        return {
+            **_capability_map(self.coordinator.data),
+            "compatibility_profile": self.coordinator.data.compatibility_profile,
+            "network_api_generation_supported": (
+                self.coordinator.data.network_api_generation_supported
+            ),
+            "contract_compatible_device_count": (
+                self.coordinator.data.contract_compatible_device_count
+            ),
+        }
 
 
 class EtherlightingVersionSensor(EtherlightingDiagnosticEntity, SensorEntity):

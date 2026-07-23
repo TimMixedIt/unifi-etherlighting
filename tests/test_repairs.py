@@ -70,7 +70,7 @@ async def test_repairs_are_idempotent_and_old_read_issue_is_removed(hass) -> Non
     unsupported = EtherlightingCoordinatorData(
         controller_status="unsupported_version_combination",
         controller_type="unifi_os",
-        network_application_version="10.5.63",
+        network_application_version="11.0.0",
         devices=(),
         colors=(),
         capabilities=data.capabilities,

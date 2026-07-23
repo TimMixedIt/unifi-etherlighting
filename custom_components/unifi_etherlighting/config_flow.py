@@ -28,7 +28,10 @@ from .api.errors import (
     UniFiSchemaError,
     UniFiTransportError,
 )
-from .api.models import CURRENT_COMPATIBILITY, brightness_read_is_supported
+from .compatibility import (
+    network_version_is_supported,
+    runtime_contract_is_supported,
+)
 from .const import (
     CONF_DEBUG_DIAGNOSTICS,
     CONF_DEVICE_IDS,
@@ -151,8 +154,18 @@ OPTIONS_SCHEMA = vol.Schema(
 )
 
 
+def _reauth_schema(username: str) -> vol.Schema:
+    """Return a credential-only schema without exposing the stored password."""
+    return vol.Schema(
+        {
+            vol.Required(CONF_USERNAME, default=username): str,
+            vol.Required(CONF_PASSWORD): str,
+        }
+    )
+
+
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Login, validate the explicit Site, and select exact-compatible switches."""
+    """Login, validate the explicit Site, and select contract-compatible switches."""
 
     VERSION = 2
 
@@ -199,14 +212,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             all_devices = await devices.async_read_devices(data[CONF_SITE])
 
             stage = ValidationStage.COMPATIBILITY
-            if network_version != CURRENT_COMPATIBILITY.network_application_version:
+            if not network_version_is_supported(network_version):
                 raise vol.Invalid("unsupported_network_version")
             if not all_devices:
                 raise vol.Invalid("no_devices")
             compatible = tuple(
                 device
                 for device in all_devices
-                if brightness_read_is_supported(network_version, device)
+                if runtime_contract_is_supported(network_version, device)
             )
             if not compatible:
                 raise vol.Invalid("no_compatible_devices")
@@ -333,6 +346,46 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._abort_if_unique_id_configured()
         return self.async_create_entry(
             title=f"UniFi Etherlighting ({unique_id})", data=data
+        )
+
+    async def async_step_reauth(
+        self, entry_data: dict[str, Any]
+    ) -> FlowResult:
+        """Start credential renewal after an authentication failure."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Validate replacement credentials and reload the existing entry."""
+        entry = self._get_reauth_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            updated = {
+                **entry.data,
+                CONF_USERNAME: user_input.get(CONF_USERNAME, ""),
+                CONF_PASSWORD: user_input.get(CONF_PASSWORD, ""),
+            }
+            try:
+                await self._async_validate_connection(updated)
+            except ValidationStageError as err:
+                category = _error_key_for_stage(err)
+                _log_stage_failure(err, category)
+                errors["base"] = category
+            except Exception:
+                errors["base"] = "unknown"
+            else:
+                return self.async_update_reload_and_abort(
+                    entry,
+                    data_updates={
+                        CONF_USERNAME: updated[CONF_USERNAME],
+                        CONF_PASSWORD: updated[CONF_PASSWORD],
+                    },
+                )
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=_reauth_schema(str(entry.data.get(CONF_USERNAME, ""))),
+            errors=errors,
         )
 
     @staticmethod

@@ -6,7 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 
-from .api.models import CURRENT_COMPATIBILITY
+from .compatibility import network_version_is_supported
 from .coordinator import EtherlightingCoordinatorData
 from .const import (
     CONTROLLER_STATUS_UNSUPPORTED,
@@ -51,8 +51,7 @@ async def async_sync_repairs(
         hass,
         entry,
         "network_version_unconfirmed",
-        data.network_application_version
-        != CURRENT_COMPATIBILITY.network_application_version,
+        not network_version_is_supported(data.network_application_version),
         "network_version_unconfirmed",
     )
     _sync_issue(

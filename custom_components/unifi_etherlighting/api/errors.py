@@ -64,7 +64,7 @@ class VerificationError(UniFiEtherlightingError):
 
 
 class UnsupportedCompatibilityError(UniFiEtherlightingError):
-    """The runtime controller/device tuple is not the exact confirmed tuple."""
+    """The runtime API generation or required live schema is unsupported."""
 
 
 class DeviceNotFoundError(UniFiEtherlightingError):

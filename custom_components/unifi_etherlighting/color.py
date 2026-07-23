@@ -225,7 +225,7 @@ class EtherlightingColorService:
         )
         if not color_read_is_supported(version, witness):
             raise UnsupportedCompatibilityError(
-                "Color control is not confirmed for this runtime tuple"
+                "Color control is unavailable because the runtime API contract did not match"
             )
         current = await self._settings.async_read_settings(site_id)
         before = current.effective_color(category, key)

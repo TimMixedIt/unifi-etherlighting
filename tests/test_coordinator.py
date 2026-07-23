@@ -3,8 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from homeassistant.exceptions import ConfigEntryAuthFailed
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.unifi_etherlighting.api.errors import UniFiAuthenticationError
 from custom_components.unifi_etherlighting.const import DOMAIN
 from custom_components.unifi_etherlighting.coordinator import (
     EtherlightingDataUpdateCoordinator,
@@ -18,6 +21,11 @@ from custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting i
 class FakeController:
     async def async_read_network_application_version(self) -> str:
         return "10.5.62"
+
+
+class FailingAuthController:
+    async def async_read_network_application_version(self) -> str:
+        raise UniFiAuthenticationError("synthetic authentication failure")
 
 
 class FakeDevices:
@@ -126,3 +134,23 @@ async def test_coordinator_reads_version_and_devices_without_writing(hass) -> No
     assert coordinator.data.write_block_reason is None
     assert coordinator.data.missing_confirmed_fields == ()
     assert devices.write_count == 0
+
+
+async def test_coordinator_authentication_failure_starts_reauth(hass) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"site": "site_001", "device_ids": ["device_001"]},
+        options={},
+    )
+    coordinator = EtherlightingDataUpdateCoordinator(
+        hass,
+        entry,
+        FailingAuthController(),  # type: ignore[arg-type]
+        FakeDevices(),
+        FakeService(),  # type: ignore[arg-type]
+        FakeColorSettings(),  # type: ignore[arg-type]
+        FakeService(),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(ConfigEntryAuthFailed):
+        await coordinator._async_update_data()

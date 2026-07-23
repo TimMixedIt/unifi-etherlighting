@@ -1,11 +1,13 @@
 {
   "domain": "unifi_etherlighting",
   "name": "UniFi Etherlighting",
-  "codeowners": [],
+  "codeowners": [
+    "@TimMixedIt"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/TimMixedIt/unifi-etherlighting",
   "integration_type": "hub",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/TimMixedIt/unifi-etherlighting/issues",
-  "version": "0.4.0"
+  "version": "0.5.0"
 }

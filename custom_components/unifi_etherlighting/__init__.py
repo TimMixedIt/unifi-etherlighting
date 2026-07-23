@@ -1,4 +1,4 @@
-"""UniFi Etherlighting with verified, version-bound local controls."""
+"""UniFi Etherlighting with verified, contract-bound local controls."""
 
 from __future__ import annotations
 

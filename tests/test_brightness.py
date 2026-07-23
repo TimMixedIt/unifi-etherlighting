@@ -242,17 +242,37 @@ async def test_noop_control_does_not_write(monkeypatch) -> None:
     assert devices.writes == []
 
 
-def test_other_runtime_version_blocks_before_write(monkeypatch) -> None:
+def test_other_network_api_generation_blocks_before_write(monkeypatch) -> None:
     monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
     devices = FakeDevices([complete_write_source(30)])
     service = BrightnessService(
         FakeAuth(),
-        FakeController("10.5.63"),
+        FakeController("11.0.0"),
         devices,  # type: ignore[arg-type]
     )
     with pytest.raises(UnsupportedCompatibilityError):
         asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
     assert devices.writes == []
+
+
+def test_patch_update_uses_same_verified_write_contract(monkeypatch) -> None:
+    monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
+    devices = FakeDevices(
+        [complete_write_source(30), complete_write_source(31)],
+        response_brightness=31,
+    )
+    service = BrightnessService(
+        FakeAuth(),
+        FakeController("10.5.66"),
+        devices,  # type: ignore[arg-type]
+    )
+
+    result = asyncio.run(
+        service.async_set_brightness("site_001", "device_001", 31)
+    )
+
+    assert result.outcome is BrightnessWriteOutcome.APPLIED
+    assert len(devices.writes) == 1
 
 
 def test_timeout_is_not_retried_and_is_classified_by_read(monkeypatch) -> None:

@@ -1,52 +1,49 @@
-# Verifiziertes Etherlighting-Read-modify-write
+# Verified Etherlighting read-modify-write
 
-> **Freigabe 0.4.0:** Diese Abläufe sind ausschließlich für die exakt validierte Versionskombination produktiv erreichbar. Das im Device-Read fehlende Feld `lcm_night_mode_enabled` folgt der live bestätigten UI-Initialisierung: vorhandenen booleschen Wert erhalten, bei Abwesenheit `false`, bei jedem anderen Typ sicher abbrechen.
-
-Der Ablauf ändert pro Aktion fachlich genau eines der bestätigten Felder `ether_lighting.brightness`, `ether_lighting.behavior` oder `ether_lighting.mode`:
+## Device controls
 
 ```text
-Authentifizierung sicherstellen
-→ Network-Version lesen
-→ exakte Kompatibilität prüfen
-→ aktuelles Device über stat/device lesen
-→ Zielwert gegen die bestätigte Allowlist prüfen
-→ bestätigten UI-Payload aus aktuellen Feldern projizieren
-→ PUT genau einmal senden
-→ HTTP, meta.rc und den erwarteten Responsewert prüfen
-→ Device erneut über stat/device lesen
-→ Zielwert und unveränderte Etherlighting-Felder prüfen
+ensure authenticated session
+→ read Network version
+→ validate supported API generation
+→ read complete Device
+→ validate capability and full write-source schema
+→ validate requested value
+→ project the UI-observed payload from current values
+→ change exactly one semantic field
+→ send one PUT
+→ validate HTTP, meta.rc and response value
+→ independently read Device
+→ verify target value and preserved invariants
 ```
 
-## Payload-Projektion
+`build_etherlighting_write_payload()` does not send a minimal patch. It copies
+only the top-level, `config_network` and Etherlighting fields observed in the
+real Network UI write. Missing required fields stop the operation before a
+request is sent.
 
-`build_etherlighting_write_payload()` erzeugt kein minimales Patch. Es übernimmt ausschließlich die im echten UI-Write beobachteten Top-Level-Felder, die bestätigten `config_network`-Felder und `mode`, `brightness`, `behavior`, `led_mode` aus dem aktuellen Device-Zustand. Fehlende Pflichtfelder brechen vor dem Write ab. Read-only- und unbekannte Felder werden nicht ungeprüft gesendet.
+Brightness is restricted to 1–100, behavior to `steady`/`breath` and mode to
+`network`/`speed`.
 
-Das Eingabeobjekt bleibt unverändert. Die Projektion akzeptiert exakt eine Änderung. Brightness ist auf 1–100 in Einerschritten begrenzt, Behavior auf `steady`/`breath` und Mode auf `network`/`speed`.
-
-## Farb-Read-modify-write
-
-Network- und Speed-Farben verwenden den eigenständig bestätigten Site-Setting-Ablauf:
+## Color controls
 
 ```text
-Network-Version und Witness-Device prüfen
-→ vollständige Etherlighting-Settings lesen
-→ genau einen Override ersetzen oder ergänzen
-→ beide vollständigen Override-Arrays per POST senden
-→ Setting-Response prüfen
-→ UI-beobachteten unveränderten Device-Payload per PUT senden
-→ Device-Response prüfen
-→ Settings und Device unabhängig erneut lesen
-→ Zielfarbe und alle übrigen effektiven Farben und Device-Invarianten prüfen
+validate Network generation and witness Device contract
+→ read complete Etherlighting settings
+→ replace or append one override
+→ send both complete override arrays once
+→ validate settings response
+→ send the UI-observed no-op Device refresh once
+→ validate Device response
+→ independently re-read settings and Device
+→ verify target color and every preserved invariant
 ```
 
-Es wird weder ein minimales Farbfragment noch eine unvollständige Override-Liste gesendet. Die Device-Aktualisierung enthält keine fachliche Änderung an `mode`, `brightness`, `behavior` oder `led_mode`.
+## Failure classification
 
-## Unsichere Ergebnisse
+- `applied`: target was independently read and invariants were preserved.
+- `not_applied`: original value remained and invariants were preserved.
+- `indeterminate`: the result or preservation could not be proven.
 
-Writes werden niemals automatisch wiederholt. Nach einer Ablehnung, einem Auth-Fehler oder einer Transportunterbrechung liest der Service den aktuellen Device-Zustand und klassifiziert:
-
-- `applied`: Zielwert unabhängig gelesen, Invarianten erhalten;
-- `not_applied`: Ausgangswert unabhängig gelesen, Invarianten erhalten;
-- `indeterminate`: kein eindeutiger Zustand oder unerwartete Nebenänderung.
-
-Bei `indeterminate` bleibt die Entität nicht optimistisch auf dem Zielwert; weitere Device-Writes für das Gerät beziehungsweise Farb-Writes für die Site werden temporär gesperrt und ein Repair wird erzeugt.
+`indeterminate` blocks subsequent writes for the affected Device or Site. No
+write path has an automatic retry.

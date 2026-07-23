@@ -8,6 +8,7 @@ import logging
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -16,7 +17,7 @@ from .api.adapters.unifi_os_device import UniFiOsDeviceAdapter
 from .api.adapters.unifi_os_etherlighting import (
     UniFiOsEtherlightingSettingsAdapter,
 )
-from .api.errors import UniFiEtherlightingError
+from .api.errors import UniFiAuthenticationError, UniFiEtherlightingError
 from .api.models import (
     CapabilityEvidence,
     CapabilityState,
@@ -28,6 +29,11 @@ from .api.models import (
 )
 from .brightness import BrightnessService
 from .color import EtherlightingColorService
+from .compatibility import (
+    COMPATIBILITY_PROFILE,
+    network_version_is_supported,
+    runtime_contract_is_supported,
+)
 from .const import (
     ACTIVE_WRITE_BLOCK_REASON,
     CONF_DEVICE_IDS,
@@ -94,6 +100,9 @@ class EtherlightingCoordinatorData:
     write_capability: str
     write_block_reason: str | None
     missing_confirmed_fields: tuple[str, ...]
+    compatibility_profile: str = COMPATIBILITY_PROFILE
+    network_api_generation_supported: bool = False
+    contract_compatible_device_count: int = 0
 
 
 def _device_brightness(device: dict[str, Any]) -> int | None:
@@ -154,6 +163,8 @@ class EtherlightingDataUpdateCoordinator(
                 await self._controller.async_read_network_application_version()
             )
             all_devices = await self._devices.async_read_devices(site)
+        except UniFiAuthenticationError as err:
+            raise ConfigEntryAuthFailed from err
         except UniFiEtherlightingError as err:
             raise UpdateFailed(type(err).__name__) from err
 
@@ -287,6 +298,14 @@ class EtherlightingDataUpdateCoordinator(
             write_capability=WRITE_CAPABILITY_STATE,
             write_block_reason=ACTIVE_WRITE_BLOCK_REASON,
             missing_confirmed_fields=MISSING_CONFIRMED_WRITE_FIELDS,
+            compatibility_profile=COMPATIBILITY_PROFILE,
+            network_api_generation_supported=network_version_is_supported(
+                network_version
+            ),
+            contract_compatible_device_count=sum(
+                runtime_contract_is_supported(network_version, device)
+                for device in selected
+            ),
         )
 
     def device(self, device_id: str) -> DiagnosticDevice | None:
