@@ -121,6 +121,7 @@ for regressions after a UniFi update.
 python3 tools/validate_capture_sequence.py captures/brightness
 python3 tools/validate_control_capture.py captures/controls/live_validation.json
 python3 tools/validate_color_capture.py captures/colors/live_validation.json
+python3 tools/validate_update_compatibility.py captures/update_compatibility/live_validation.json
 uv run --with-requirements requirements_test.txt pytest -q
 uv run --with 'ruff>=0.11.0' ruff check .
 ```

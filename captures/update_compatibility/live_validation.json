@@ -1,0 +1,105 @@
+{
+  "capture_role": "post_update_runtime_validation",
+  "captured_at": "2026-07-23T11:08:56Z",
+  "capture_source": "home_assistant_entities",
+  "integration_version": "0.5.0",
+  "environment": {
+    "controller_type": "unifi_os",
+    "previous_network_application_version": "10.5.62",
+    "current_network_application_version": "10.5.66",
+    "device_type": "usw",
+    "device_model": "USWED72",
+    "device_firmware": "7.4.1.16850"
+  },
+  "runtime_contract": {
+    "profile": "unifi_os_network_v10",
+    "network_api_generation_supported": true,
+    "contract_compatible_device_count": 1,
+    "controller_status": "online",
+    "write_capability": "ready",
+    "write_block_reason": null,
+    "entity_count": 19
+  },
+  "sequences": {
+    "brightness": {
+      "semantic_path": "ether_lighting.brightness",
+      "before": 30,
+      "after": 31,
+      "final": 30,
+      "forward_result": "verified",
+      "reverse_result": "verified"
+    },
+    "mode": {
+      "semantic_path": "ether_lighting.mode",
+      "before": "network",
+      "after": "speed",
+      "final": "network",
+      "forward_result": "verified",
+      "reverse_result": "verified"
+    },
+    "behavior": {
+      "semantic_path": "ether_lighting.behavior",
+      "before": "steady",
+      "after": "breath",
+      "final": "steady",
+      "forward_result": "verified",
+      "reverse_result": "verified"
+    },
+    "network_color": {
+      "semantic_path": "ether_lighting.network_overrides.color",
+      "before": [
+        5,
+        68,
+        255
+      ],
+      "after": [
+        6,
+        68,
+        255
+      ],
+      "final": [
+        5,
+        68,
+        255
+      ],
+      "forward_result": "verified",
+      "reverse_result": "verified"
+    },
+    "speed_color": {
+      "semantic_path": "ether_lighting.speed_overrides.color",
+      "before": [
+        255,
+        193,
+        5
+      ],
+      "after": [
+        250,
+        193,
+        5
+      ],
+      "final": [
+        255,
+        193,
+        5
+      ],
+      "forward_result": "verified",
+      "reverse_result": "verified"
+    }
+  },
+  "final_invariants": {
+    "brightness": 30,
+    "mode": "network",
+    "behavior": "steady",
+    "network_color_restored": true,
+    "speed_color_restored": true,
+    "write_block_reason": null,
+    "integration_errors": 0
+  },
+  "security": {
+    "contains_credentials": false,
+    "contains_addresses": false,
+    "contains_identifiers": false,
+    "contains_cookie_or_token_values": false,
+    "contains_raw_requests_or_responses": false
+  }
+}
