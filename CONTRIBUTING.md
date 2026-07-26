@@ -20,6 +20,7 @@ Use a feature branch and keep controller-specific data out of fixtures.
 
 ```bash
 uv run --with-requirements requirements_test.txt pytest -q
+uv run --python 3.14 --with-requirements requirements_test_current.txt pytest -q
 uv run --with 'ruff>=0.11.0' ruff check .
 python3 tools/validate_capture_sequence.py captures/brightness
 python3 tools/validate_control_capture.py captures/controls/live_validation.json

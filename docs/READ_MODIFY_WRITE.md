@@ -39,6 +39,12 @@ validate Network generation and witness Device contract
 → verify target color and every preserved invariant
 ```
 
+UniFi may normalize a selected color by one value in one RGB channel. This
+specific live-observed representation difference is accepted only after the
+independent settings read and Device read both succeed and all non-target
+values remain unchanged. A difference of more than one, or changes in multiple
+channels, remains a verification failure.
+
 ## Failure classification
 
 - `applied`: target was independently read and invariants were preserved.
@@ -46,4 +52,6 @@ validate Network generation and witness Device contract
 - `indeterminate`: the result or preservation could not be proven.
 
 `indeterminate` blocks subsequent writes for the affected Device or Site. No
-write path has an automatic retry.
+write path has an automatic retry. Repairs are created only for
+`indeterminate` outcomes; a safely proven `not_applied` action returns an
+action error without leaving a persistent Repair.

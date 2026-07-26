@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from homeassistant.helpers import issue_registry as ir
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.unifi_etherlighting.api.models import (
+    CapabilityState,
     current_capture_capabilities,
 )
 from custom_components.unifi_etherlighting.const import DOMAIN
 from custom_components.unifi_etherlighting.coordinator import (
+    DiagnosticColor,
     DiagnosticDevice,
     EtherlightingCoordinatorData,
 )
@@ -91,4 +95,76 @@ async def test_repairs_are_idempotent_and_old_read_issue_is_removed(hass) -> Non
             DOMAIN, f"{entry.entry_id}_network_version_unconfirmed"
         )
         is not None
+    )
+
+
+async def test_write_repairs_track_only_indeterminate_results(hass) -> None:
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={})
+    base = EtherlightingCoordinatorData(
+        controller_status="online",
+        controller_type="unifi_os",
+        network_application_version="10.5.66",
+        devices=(),
+        colors=(),
+        capabilities=current_capture_capabilities(),
+        last_successful_update=None,
+        last_verified_write=None,
+        last_error="write_not_applied",
+        write_capability="ready",
+        write_block_reason=None,
+        missing_confirmed_fields=(),
+    )
+    registry = ir.async_get(hass)
+
+    await async_sync_repairs(hass, entry, base)
+    assert (
+        registry.async_get_issue(
+            DOMAIN, f"{entry.entry_id}_write_unverified"
+        )
+        is None
+    )
+    assert (
+        registry.async_get_issue(DOMAIN, f"{entry.entry_id}_write_blocked")
+        is None
+    )
+
+    indeterminate = replace(
+        base,
+        last_error="write_verification_failed",
+        colors=(
+            DiagnosticColor(
+                category="speed",
+                key="FE",
+                name="FE",
+                raw_color_hex="FFC105",
+                witness_device_id="device_001",
+                read_supported=True,
+                write_supported=CapabilityState.CONFIRMED,
+                write_ready=True,
+                write_blocked=True,
+            ),
+        ),
+    )
+    await async_sync_repairs(hass, entry, indeterminate)
+    assert (
+        registry.async_get_issue(
+            DOMAIN, f"{entry.entry_id}_write_unverified"
+        )
+        is not None
+    )
+    assert (
+        registry.async_get_issue(DOMAIN, f"{entry.entry_id}_write_blocked")
+        is not None
+    )
+
+    await async_sync_repairs(hass, entry, replace(base, last_error=None))
+    assert (
+        registry.async_get_issue(
+            DOMAIN, f"{entry.entry_id}_write_unverified"
+        )
+        is None
+    )
+    assert (
+        registry.async_get_issue(DOMAIN, f"{entry.entry_id}_write_blocked")
+        is None
     )
