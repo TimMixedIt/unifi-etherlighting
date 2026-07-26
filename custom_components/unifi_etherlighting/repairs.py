@@ -80,8 +80,7 @@ async def async_sync_repairs(
         hass,
         entry,
         "write_unverified",
-        bool(error)
-        and ("Verification" in error or error == "write_verification_failed"),
+        error == "write_verification_failed",
         "write_unverified",
     )
     _sync_issue(
@@ -95,6 +94,7 @@ async def async_sync_repairs(
         hass,
         entry,
         "write_blocked",
-        any(device.write_blocked for device in data.devices),
+        any(device.write_blocked for device in data.devices)
+        or any(color.write_blocked for color in data.colors),
         "write_blocked",
     )

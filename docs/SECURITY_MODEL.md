@@ -20,6 +20,8 @@
 - An indeterminate result blocks later writes and creates a Repair.
 - Color writes preserve both override arrays, change one color and validate the
   UI-observed no-op Device refresh.
+- Color normalization is bounded to one value in one RGB channel and is
+  accepted only after an independent read with all preserved invariants.
 - No SSH, UniFi Cloud login, port control, raw API service, telemetry or
   external debug upload exists.
 

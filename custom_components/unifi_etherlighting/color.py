@@ -42,6 +42,8 @@ _STABLE_DEVICE_FIELDS = (
     "stp_version",
     "stp_priority",
 )
+_MAX_NORMALIZED_CHANNEL_DELTA = 1
+_MAX_NORMALIZED_TOTAL_DELTA = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +58,31 @@ class VerifiedColorResult:
     observed: str | None
     verified_at: datetime | None
     error_code: str | None = None
+
+
+def _colors_equivalent(requested: str, observed: str) -> bool:
+    """Accept only the live-observed one-step controller RGB normalization."""
+    try:
+        requested_value = normalize_color_hex(requested)
+        observed_value = normalize_color_hex(observed)
+    except UniFiEtherlightingError:
+        return False
+    requested_channels = tuple(
+        int(requested_value[index : index + 2], 16) for index in (0, 2, 4)
+    )
+    observed_channels = tuple(
+        int(observed_value[index : index + 2], 16) for index in (0, 2, 4)
+    )
+    deltas = tuple(
+        abs(requested_channel - observed_channel)
+        for requested_channel, observed_channel in zip(
+            requested_channels, observed_channels, strict=True
+        )
+    )
+    return (
+        max(deltas) <= _MAX_NORMALIZED_CHANNEL_DELTA
+        and sum(deltas) <= _MAX_NORMALIZED_TOTAL_DELTA
+    )
 
 
 def _effective_map(
@@ -164,7 +191,6 @@ class EtherlightingColorService:
         requested: str,
         *,
         reauthenticate: bool,
-        error_code: str,
     ) -> VerifiedColorResult:
         try:
             if reauthenticate:
@@ -182,18 +208,25 @@ class EtherlightingColorService:
             observed = None
             preserved = False
 
-        if preserved and observed == requested:
+        if (
+            preserved
+            and observed is not None
+            and _colors_equivalent(requested, observed)
+        ):
             outcome = BrightnessWriteOutcome.APPLIED
             verified_at = datetime.now(UTC)
             self.last_verified_write = verified_at
+            resolved_error_code = None
         elif preserved and observed == before:
             outcome = BrightnessWriteOutcome.NOT_APPLIED
             verified_at = datetime.now(UTC)
+            resolved_error_code = "write_not_applied"
         else:
             outcome = BrightnessWriteOutcome.INDETERMINATE
             verified_at = None
             self._blocked_sites.add(site_id)
-        self.last_error_code = error_code
+            resolved_error_code = "write_verification_failed"
+        self.last_error_code = resolved_error_code
         return VerifiedColorResult(
             outcome,
             category,
@@ -202,7 +235,7 @@ class EtherlightingColorService:
             requested,
             observed,
             verified_at,
-            error_code,
+            resolved_error_code,
         )
 
     async def async_set_color(
@@ -261,9 +294,9 @@ class EtherlightingColorService:
                 speed_overrides=speed_overrides,
             )
             response_color = response_settings.effective_color(category, key)
-            if response_color != requested or not _settings_preserved(
-                current, response_settings, category, key
-            ):
+            if not _colors_equivalent(
+                requested, response_color
+            ) or not _settings_preserved(current, response_settings, category, key):
                 return await self._classify_after_failure(
                     site_id,
                     current,
@@ -273,7 +306,6 @@ class EtherlightingColorService:
                     before,
                     requested,
                     reauthenticate=False,
-                    error_code="write_response_verification_failed",
                 )
             refresh_payload = build_etherlighting_refresh_payload(witness)
             device_response = await self._devices.async_write_device(
@@ -289,9 +321,13 @@ class EtherlightingColorService:
                 site_id, witness_device_id
             )
             observed = verified_settings.effective_color(category, key)
-            if observed != requested or not _settings_preserved(
-                current, verified_settings, category, key
-            ) or not _device_preserved(witness, verified_device):
+            if (
+                not _colors_equivalent(requested, observed)
+                or not _settings_preserved(
+                    current, verified_settings, category, key
+                )
+                or not _device_preserved(witness, verified_device)
+            ):
                 return await self._classify_after_failure(
                     site_id,
                     current,
@@ -301,9 +337,8 @@ class EtherlightingColorService:
                     before,
                     requested,
                     reauthenticate=False,
-                    error_code="read_after_write_verification_failed",
                 )
-        except (UniFiAuthenticationError, UniFiPermissionError) as err:
+        except (UniFiAuthenticationError, UniFiPermissionError):
             return await self._classify_after_failure(
                 site_id,
                 current,
@@ -313,9 +348,8 @@ class EtherlightingColorService:
                 before,
                 requested,
                 reauthenticate=True,
-                error_code=type(err).__name__,
             )
-        except UniFiEtherlightingError as err:
+        except UniFiEtherlightingError:
             return await self._classify_after_failure(
                 site_id,
                 current,
@@ -325,7 +359,6 @@ class EtherlightingColorService:
                 before,
                 requested,
                 reauthenticate=False,
-                error_code=type(err).__name__,
             )
 
         verified_at = datetime.now(UTC)

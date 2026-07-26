@@ -16,7 +16,10 @@ from custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting i
 )
 from custom_components.unifi_etherlighting.api.errors import UniFiSchemaError
 from custom_components.unifi_etherlighting.brightness import BrightnessWriteOutcome
-from custom_components.unifi_etherlighting.color import EtherlightingColorService
+from custom_components.unifi_etherlighting.color import (
+    EtherlightingColorService,
+    _colors_equivalent,
+)
 from custom_components.unifi_etherlighting.coordinator import DiagnosticColor
 from custom_components.unifi_etherlighting.light import (
     EtherlightingColorLight,
@@ -127,6 +130,15 @@ def _setting_with_speed_color(value: str) -> object:
     return parse_etherlighting_settings_response(body)
 
 
+def test_color_equivalence_is_bounded_to_one_channel_step() -> None:
+    assert _colors_equivalent("FEC105", "FFC105")
+    assert _colors_equivalent("FFC105", "FEC105")
+    assert _colors_equivalent("FFC105", "FFC105")
+    assert not _colors_equivalent("FDC105", "FFC105")
+    assert not _colors_equivalent("FEC005", "FFC105")
+    assert not _colors_equivalent("invalid", "FFC105")
+
+
 async def test_color_service_writes_one_override_and_reads_it_back() -> None:
     before = parse_etherlighting_settings_response(
         fixture("etherlighting_settings_read.json")
@@ -165,6 +177,102 @@ async def test_color_service_writes_one_override_and_reads_it_back() -> None:
         == device["ether_lighting"]
     )
     settings.async_read_settings.assert_awaited()
+
+
+async def test_controller_one_step_color_normalization_is_verified() -> None:
+    before = parse_etherlighting_settings_response(
+        fixture("etherlighting_settings_read.json")
+    )
+    auth = SimpleNamespace(async_ensure_authenticated=AsyncMock())
+    controller = SimpleNamespace(
+        async_read_network_application_version=AsyncMock(return_value="10.5.66")
+    )
+    device = fixture("device_read_brightness_30.json")
+    devices = SimpleNamespace(
+        async_read_device=AsyncMock(side_effect=[device, device]),
+        async_write_device=AsyncMock(
+            return_value={"meta": {"rc": "ok"}, "data": [device]}
+        ),
+    )
+    settings = SimpleNamespace(
+        async_read_settings=AsyncMock(side_effect=[before, before]),
+        async_write_overrides=AsyncMock(return_value=before),
+    )
+    service = EtherlightingColorService(auth, controller, devices, settings)
+
+    result = await service.async_set_color(
+        "site_001", "device_001", "speed", "FE", "FEC105"
+    )
+
+    assert result.outcome is BrightnessWriteOutcome.APPLIED
+    assert result.requested == "FEC105"
+    assert result.observed == "FFC105"
+    assert result.error_code is None
+    assert service.last_error_code is None
+    assert not service.is_write_blocked("site_001")
+    devices.async_write_device.assert_awaited_once()
+
+
+async def test_larger_color_normalization_is_not_applied() -> None:
+    before = parse_etherlighting_settings_response(
+        fixture("etherlighting_settings_read.json")
+    )
+    auth = SimpleNamespace(async_ensure_authenticated=AsyncMock())
+    controller = SimpleNamespace(
+        async_read_network_application_version=AsyncMock(return_value="10.5.66")
+    )
+    device = fixture("device_read_brightness_30.json")
+    devices = SimpleNamespace(
+        async_read_device=AsyncMock(side_effect=[device, device]),
+        async_write_device=AsyncMock(),
+    )
+    settings = SimpleNamespace(
+        async_read_settings=AsyncMock(side_effect=[before, before]),
+        async_write_overrides=AsyncMock(return_value=before),
+    )
+    service = EtherlightingColorService(auth, controller, devices, settings)
+
+    result = await service.async_set_color(
+        "site_001", "device_001", "speed", "FE", "FDC105"
+    )
+
+    assert result.outcome is BrightnessWriteOutcome.NOT_APPLIED
+    assert result.observed == "FFC105"
+    assert result.error_code == "write_not_applied"
+    assert service.last_error_code == "write_not_applied"
+    assert not service.is_write_blocked("site_001")
+    devices.async_write_device.assert_not_awaited()
+
+
+async def test_indeterminate_color_result_blocks_site() -> None:
+    before = parse_etherlighting_settings_response(
+        fixture("etherlighting_settings_read.json")
+    )
+    unexpected = _setting_with_speed_color("FBC105")
+    auth = SimpleNamespace(async_ensure_authenticated=AsyncMock())
+    controller = SimpleNamespace(
+        async_read_network_application_version=AsyncMock(return_value="10.5.66")
+    )
+    device = fixture("device_read_brightness_30.json")
+    devices = SimpleNamespace(
+        async_read_device=AsyncMock(side_effect=[device, device]),
+        async_write_device=AsyncMock(),
+    )
+    settings = SimpleNamespace(
+        async_read_settings=AsyncMock(side_effect=[before, unexpected]),
+        async_write_overrides=AsyncMock(return_value=unexpected),
+    )
+    service = EtherlightingColorService(auth, controller, devices, settings)
+
+    result = await service.async_set_color(
+        "site_001", "device_001", "speed", "FE", "FEC105"
+    )
+
+    assert result.outcome is BrightnessWriteOutcome.INDETERMINATE
+    assert result.error_code == "write_verification_failed"
+    assert service.last_error_code == "write_verification_failed"
+    assert service.is_write_blocked("site_001")
+    devices.async_write_device.assert_not_awaited()
 
 
 def test_rgb_conversion_is_strict() -> None:

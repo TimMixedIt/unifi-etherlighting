@@ -248,7 +248,6 @@ class BrightnessService:
         requested: int | str,
         *,
         reauthenticate: bool,
-        error_code: str,
     ) -> VerifiedEtherlightingResult:
         try:
             if reauthenticate:
@@ -267,14 +266,17 @@ class BrightnessService:
             outcome = BrightnessWriteOutcome.APPLIED
             verified_at = datetime.now(UTC)
             self.last_verified_write = verified_at
+            resolved_error_code = None
         elif preserved and observed == before:
             outcome = BrightnessWriteOutcome.NOT_APPLIED
             verified_at = datetime.now(UTC)
+            resolved_error_code = "write_not_applied"
         else:
             outcome = BrightnessWriteOutcome.INDETERMINATE
             verified_at = None
             self._blocked_devices.add(device_id)
-        self.last_error_code = error_code
+            resolved_error_code = "write_verification_failed"
+        self.last_error_code = resolved_error_code
         return VerifiedEtherlightingResult(
             outcome,
             field,
@@ -282,7 +284,7 @@ class BrightnessService:
             requested,
             observed,
             verified_at,
-            error_code,
+            resolved_error_code,
         )
 
     async def _async_set_value(
@@ -346,9 +348,8 @@ class BrightnessService:
                     before,
                     requested,
                     reauthenticate=False,
-                    error_code="write_verification_failed",
                 )
-        except (UniFiAuthenticationError, UniFiPermissionError) as err:
+        except (UniFiAuthenticationError, UniFiPermissionError):
             return await self._classify_after_failure(
                 site,
                 device_id,
@@ -357,9 +358,8 @@ class BrightnessService:
                 before,
                 requested,
                 reauthenticate=True,
-                error_code=type(err).__name__,
             )
-        except (UniFiResponseError, VerificationError) as err:
+        except (UniFiResponseError, VerificationError):
             return await self._classify_after_failure(
                 site,
                 device_id,
@@ -368,7 +368,6 @@ class BrightnessService:
                 before,
                 requested,
                 reauthenticate=False,
-                error_code=type(err).__name__,
             )
 
         verified_at = datetime.now(UTC)

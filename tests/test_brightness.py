@@ -284,6 +284,8 @@ def test_timeout_is_not_retried_and_is_classified_by_read(monkeypatch) -> None:
     service = BrightnessService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
     result = asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
     assert result.outcome is BrightnessWriteOutcome.APPLIED
+    assert result.error_code is None
+    assert service.last_error_code is None
     assert len(devices.writes) == 1
 
 
@@ -298,6 +300,8 @@ def test_unchanged_state_is_not_applied_and_mixed_state_blocks_writes(
     service = BrightnessService(FakeAuth(), FakeController(), unchanged)  # type: ignore[arg-type]
     result = asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
     assert result.outcome is BrightnessWriteOutcome.NOT_APPLIED
+    assert result.error_code == "write_not_applied"
+    assert service.last_error_code == "write_not_applied"
 
     mixed = complete_write_source(30)
     mixed["ether_lighting"]["behavior"] = "changed"
@@ -308,6 +312,8 @@ def test_unchanged_state_is_not_applied_and_mixed_state_blocks_writes(
     blocked = BrightnessService(FakeAuth(), FakeController(), uncertain)  # type: ignore[arg-type]
     result = asyncio.run(blocked.async_set_brightness("site_001", "device_001", 31))
     assert result.outcome is BrightnessWriteOutcome.INDETERMINATE
+    assert result.error_code == "write_verification_failed"
+    assert blocked.last_error_code == "write_verification_failed"
     with pytest.raises(WriteBlockedError):
         asyncio.run(blocked.async_set_brightness("site_001", "device_001", 31))
     assert len(uncertain.writes) == 1

@@ -49,8 +49,11 @@ Before every Device write the integration:
 
 Color writes preserve both complete override arrays, change one color, perform
 the UI-observed no-op Device refresh and independently verify both resources.
-Writes are never retried automatically. An indeterminate result blocks further
-writes for the affected Device or Site.
+The controller's live-observed normalization of one RGB channel by one step is
+accepted only when an independent read confirms it and every other setting is
+preserved. Larger or multi-channel differences fail closed. Writes are never
+retried automatically. An indeterminate result blocks further writes for the
+affected Device or Site.
 
 ## Installation
 
@@ -111,6 +114,11 @@ Useful status fields:
 - `last_error_code`
 - per-capability `read_supported`, `write_supported` and `write_ready`
 
+The Repair **Etherlighting write could not be verified** means the independent
+read could not prove either the requested state or the unchanged original
+state. A one-step RGB normalization does not create this Repair; only an
+indeterminate result does.
+
 Please use the repository's
 [bug report form](https://github.com/TimMixedIt/unifi-etherlighting/issues/new/choose)
 for regressions after a UniFi update.
@@ -123,6 +131,7 @@ python3 tools/validate_control_capture.py captures/controls/live_validation.json
 python3 tools/validate_color_capture.py captures/colors/live_validation.json
 python3 tools/validate_update_compatibility.py captures/update_compatibility/live_validation.json
 uv run --with-requirements requirements_test.txt pytest -q
+uv run --python 3.14 --with-requirements requirements_test_current.txt pytest -q
 uv run --with 'ruff>=0.11.0' ruff check .
 ```
 
