@@ -14,11 +14,11 @@ jobs:
   hassfest:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: home-assistant/actions/hassfest@master
   json:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Validate JSON files
         run: python3 -c 'import json; from pathlib import Path; [json.loads(path.read_text()) for path in Path(".").rglob("*.json")]'
