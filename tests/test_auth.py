@@ -1,13 +1,28 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from typing import Any
 
 import pytest
+from aiohttp import ClientConnectionError
 
 from custom_components.unifi_etherlighting.api.auth import UniFiAuthSession
-from custom_components.unifi_etherlighting.api.errors import UniFiAuthenticationError
+from custom_components.unifi_etherlighting.api.errors import (
+    TransportFailureReason,
+    UniFiAuthenticationError,
+    UniFiTransportError,
+)
+
+
+class FakeContent:
+    def __init__(self, body: bytes) -> None:
+        self.body = body
+
+    async def iter_chunked(self, size: int):
+        for offset in range(0, len(self.body), size):
+            yield self.body[offset : offset + size]
 
 
 class FakeResponse:
@@ -17,16 +32,13 @@ class FakeResponse:
         self.status = status
         self.body = body
         self.headers = headers or {}
+        self.content = FakeContent(json.dumps(body).encode())
 
     async def __aenter__(self) -> "FakeResponse":
         return self
 
     async def __aexit__(self, *_: object) -> None:
         return None
-
-    async def json(self, *, content_type: str | None = None) -> Any:
-        return self.body
-
 
 class FakeSession:
     def __init__(self, responses: list[FakeResponse]) -> None:
@@ -36,6 +48,11 @@ class FakeSession:
     def request(self, method: str, url: str, **kwargs: Any) -> FakeResponse:
         self.calls.append({"method": method, "url": url, **kwargs})
         return self.responses.pop(0)
+
+
+class FailingSession:
+    def request(self, method: str, url: str, **kwargs: Any) -> FakeResponse:
+        raise ClientConnectionError("sensitive controller detail")
 
 
 def test_login_uses_only_confirmed_route_and_fields() -> None:
@@ -56,6 +73,7 @@ def test_login_uses_only_confirmed_route_and_fields() -> None:
     assert len(session.calls) == 1
     assert session.calls[0]["method"] == "POST"
     assert session.calls[0]["url"].endswith("/api/auth/login")
+    assert session.calls[0]["allow_redirects"] is False
     assert set(session.calls[0]["json"]) == {
         "username",
         "password",
@@ -93,6 +111,7 @@ def test_logout_uses_confirmed_route_and_discards_in_memory_state() -> None:
     asyncio.run(auth.async_logout())
     assert session.calls[-1]["method"] == "POST"
     assert session.calls[-1]["url"].endswith("/api/auth/logout")
+    assert session.calls[-1]["allow_redirects"] is False
     assert not auth.authenticated
     assert auth.csrf_header() == {}
 
@@ -114,3 +133,16 @@ def test_credentials_and_csrf_are_not_logged(caplog: pytest.LogCaptureFixture) -
     assert "private-user" not in output
     assert "private-pass" not in output
     assert "synthetic" not in output
+
+
+def test_login_transport_error_discards_controller_details() -> None:
+    auth = UniFiAuthSession(
+        FailingSession(), "https://controller.invalid", "test-user", "test-pass"
+    )
+
+    with pytest.raises(UniFiTransportError) as caught:
+        asyncio.run(auth.async_login())
+
+    assert caught.value.reason is TransportFailureReason.CONNECTION
+    assert caught.value.__cause__ is None
+    assert "sensitive controller detail" not in str(caught.value)

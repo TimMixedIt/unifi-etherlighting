@@ -8,13 +8,22 @@ from contextlib import AbstractAsyncContextManager
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 from urllib.parse import urlsplit, urlunsplit
 
+from aiohttp import (
+    ClientConnectorCertificateError,
+    ClientConnectorSSLError,
+    ClientError,
+)
+from yarl import URL
+
 from .errors import (
+    TransportFailureReason,
     UniFiAuthenticationError,
     UniFiPermissionError,
     UniFiResponseError,
     UniFiSchemaError,
     UniFiTransportError,
 )
+from .response import BoundedJsonResponse, async_read_json
 
 if TYPE_CHECKING:
     from .auth import UniFiAuthSession
@@ -22,12 +31,9 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-class HttpResponse(Protocol):
+class HttpResponse(BoundedJsonResponse, Protocol):
     status: int
     headers: Mapping[str, str]
-
-    async def json(self, *, content_type: str | None = None) -> Any: ...
-
 
 class HomeAssistantHttpSession(Protocol):
     def request(
@@ -36,6 +42,20 @@ class HomeAssistantHttpSession(Protocol):
 
 
 CsrfTokenProvider = Callable[[], Awaitable[Optional[str]]]
+
+
+def build_controller_base_url(host: str, port: int, use_ssl: bool) -> str:
+    """Build a controller origin without accepting URL components as a host."""
+    try:
+        return str(
+            URL.build(
+                scheme="https" if use_ssl else "http",
+                host=host.strip(),
+                port=port,
+            )
+        )
+    except (TypeError, ValueError):
+        raise ValueError("Controller host must be a hostname or IP address") from None
 
 
 class UniFiApiClient:
@@ -98,6 +118,7 @@ class UniFiApiClient:
                 headers=headers,
                 json=payload,
                 timeout=self._timeout_seconds,
+                allow_redirects=False,
             ) as response:
                 if self._auth is not None:
                     self._auth.observe_response_headers(response.headers)
@@ -110,24 +131,26 @@ class UniFiApiClient:
                     raise UniFiPermissionError("Controller permission denied (403)")
                 if not 200 <= status < 300:
                     raise UniFiResponseError(f"Controller returned HTTP {status}")
-                try:
-                    response_data = await response.json(content_type=None)
-                except Exception as err:
-                    raise UniFiSchemaError(
-                        "Controller response was not valid JSON"
-                    ) from err
+                response_data = await async_read_json(response)
         except (UniFiAuthenticationError, UniFiPermissionError, UniFiResponseError):
             raise
-        except TimeoutError as err:
+        except (ClientConnectorCertificateError, ClientConnectorSSLError):
+            raise UniFiTransportError(
+                "Controller TLS validation failed",
+                request_may_have_been_sent=method.upper() not in {"GET", "HEAD"},
+                reason=TransportFailureReason.TLS,
+            ) from None
+        except TimeoutError:
             raise UniFiTransportError(
                 "Controller request timed out",
                 request_may_have_been_sent=method.upper() not in {"GET", "HEAD"},
-            ) from err
-        except OSError as err:
+                reason=TransportFailureReason.TIMEOUT,
+            ) from None
+        except (ClientError, OSError):
             raise UniFiTransportError(
                 "Controller connection failed",
                 request_may_have_been_sent=method.upper() not in {"GET", "HEAD"},
-            ) from err
+            ) from None
 
         _LOGGER.debug(
             "UniFi controller request succeeded: %s (HTTP %s)", method, status

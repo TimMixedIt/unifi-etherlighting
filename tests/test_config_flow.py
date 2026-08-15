@@ -11,10 +11,12 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.unifi_etherlighting.api.errors import (
+    TransportFailureReason,
     UniFiAuthenticationError,
     UniFiPermissionError,
     UniFiResponseError,
     UniFiSchemaError,
+    UniFiTransportError,
     UniFiVersionSchemaError,
     VersionSchemaMismatchReason,
 )
@@ -444,6 +446,32 @@ async def test_stage_error_is_exposed_without_cause_details(
             ValidationStage.DEVICE_READ,
             UniFiResponseError("HTTP 404 sensitive diagnostic marker"),
             "site_not_found",
+        ),
+        (
+            ValidationStage.LOGIN,
+            UniFiTransportError(
+                "safe TLS failure",
+                request_may_have_been_sent=False,
+                reason=TransportFailureReason.TLS,
+            ),
+            "invalid_ssl",
+        ),
+        (
+            ValidationStage.LOGIN,
+            UniFiTransportError(
+                "safe timeout",
+                request_may_have_been_sent=False,
+                reason=TransportFailureReason.TIMEOUT,
+            ),
+            "timeout",
+        ),
+        (
+            ValidationStage.LOGIN,
+            UniFiTransportError(
+                "safe connection failure",
+                request_may_have_been_sent=False,
+            ),
+            "cannot_connect",
         ),
     ],
 )

@@ -1,10 +1,17 @@
 # Security model
 
+The detailed attack tree, requirements and control traceability are maintained
+in [SECURITY_REVIEW.md](SECURITY_REVIEW.md).
+
 - Only capture-confirmed login, logout, version, Device, settings and network
   configuration paths are implemented.
+- Controller origins accept only a hostname/IP, scheme and port; URL components
+  cannot be injected through the host field.
 - Site and Device path parameters are URL-encoded.
 - Credentials are used only for local login and are never logged.
 - Session cookies and CSRF data remain in the dedicated in-memory HTTP session.
+- HTTP redirects are disabled so credentials, tokens and write payloads cannot
+  be forwarded to a controller-selected destination.
 - Diagnostics are allowlist-based and exclude host, Site, Device IDs,
   credentials, payloads and complete responses.
 - Config-flow logging contains only stage, safe category, exception type and an
@@ -14,7 +21,10 @@
 - Compatible Network 10 updates are accepted only when the complete runtime
   API and Device schema still match.
 - Unsupported API generations and changed schemas fail closed.
+- Controller JSON is streamed through a fixed response-size limit.
 - One action changes exactly one allowlisted semantic value.
+- Read-modify-write actions are serialized per config entry to prevent one
+  concurrent entity action from overwriting another.
 - Writes are sent once, never automatically retried and always followed by an
   independent read.
 - An indeterminate result blocks later writes and creates a Repair.
@@ -24,6 +34,7 @@
   accepted only after an independent read with all preserved invariants.
 - No SSH, UniFi Cloud login, port control, raw API service, telemetry or
   external debug upload exists.
+- CI actions are pinned to immutable commits.
 
 A read may retry once after a 401/403 by establishing a new local session. A
 write is never retried after an authentication error, timeout or disconnect;

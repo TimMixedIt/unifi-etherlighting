@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from aiohttp import ClientConnectionError
 
 from custom_components.unifi_etherlighting.api import client as client_module
 from custom_components.unifi_etherlighting.api.adapters import (
@@ -20,17 +21,33 @@ from custom_components.unifi_etherlighting.api.adapters.unifi_os_device import (
 from custom_components.unifi_etherlighting.api.adapters.unifi_os_controller import (
     UniFiOsControllerAdapter,
 )
-from custom_components.unifi_etherlighting.api.client import UniFiApiClient
+from custom_components.unifi_etherlighting.api.client import (
+    UniFiApiClient,
+    build_controller_base_url,
+)
 from custom_components.unifi_etherlighting.api.errors import (
+    TransportFailureReason,
     UniFiAuthenticationError,
     UniFiPermissionError,
     UniFiResponseError,
+    UniFiSchemaError,
+    UniFiTransportError,
     UniFiVersionSchemaError,
     VersionSchemaMismatchReason,
     WriteCapabilityUnavailableError,
 )
+from custom_components.unifi_etherlighting.api import response as response_module
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+class FakeContent:
+    def __init__(self, body: bytes) -> None:
+        self.body = body
+
+    async def iter_chunked(self, size: int):
+        for offset in range(0, len(self.body), size):
+            yield self.body[offset : offset + size]
 
 
 class FakeResponse:
@@ -40,16 +57,13 @@ class FakeResponse:
         self.status = status
         self._body = body
         self.headers = headers or {}
+        self.content = FakeContent(json.dumps(body).encode())
 
     async def __aenter__(self) -> "FakeResponse":
         return self
 
     async def __aexit__(self, exc_type: object, exc: object, traceback: object) -> None:
         return None
-
-    async def json(self, *, content_type: str | None = None) -> Any:
-        return self._body
-
 
 class FakeSession:
     def __init__(self, response: FakeResponse) -> None:
@@ -105,6 +119,30 @@ def make_adapter(
     return UniFiOsDeviceAdapter(client), session
 
 
+@pytest.mark.parametrize(
+    "host",
+    [
+        "https://controller.invalid",
+        "controller.invalid/path",
+        "user@controller.invalid",
+        "controller.invalid:8443",
+        "controller.invalid\nInjected: value",
+    ],
+)
+def test_controller_host_rejects_url_components(host: str) -> None:
+    with pytest.raises(ValueError, match="hostname or IP address"):
+        build_controller_base_url(host, 443, True)
+
+
+def test_controller_base_url_supports_hostname_and_ipv6() -> None:
+    assert build_controller_base_url(" controller.invalid ", 443, True) == (
+        "https://controller.invalid"
+    )
+    assert build_controller_base_url("2001:db8::1", 8443, True) == (
+        "https://[2001:db8::1]:8443"
+    )
+
+
 @pytest.fixture
 def enable_device_writes(monkeypatch):
     """Exercise the dormant validated adapter contract in isolated unit tests."""
@@ -136,6 +174,7 @@ def test_controller_version_and_device_read_use_only_confirmed_paths() -> None:
     controller = UniFiOsControllerAdapter(client)
     assert asyncio.run(controller.async_read_network_application_version()) == "10.5.62"
     assert session.calls[0]["method"] == "GET"
+    assert session.calls[0]["allow_redirects"] is False
     assert session.calls[0]["url"].endswith("/proxy/network/v2/api/info")
 
     device = fixture("device_read_brightness_30.json")
@@ -244,6 +283,7 @@ def test_write_accepts_http_200_and_meta_ok(enable_device_writes) -> None:
     result = asyncio.run(adapter.async_write_device("site_001", "device_001", payload))
     assert result == response
     assert session.calls[0]["method"] == "PUT"
+    assert session.calls[0]["allow_redirects"] is False
     assert session.calls[0]["url"].endswith(
         "/proxy/network/api/s/site_001/rest/device/device_001"
     )
@@ -306,6 +346,48 @@ def test_auth_and_permission_errors_are_not_retried(enable_device_writes) -> Non
         else:
             raise AssertionError(f"HTTP {status} must raise {expected.__name__}")
         assert len(session.calls) == 1
+
+
+def test_transport_errors_discard_controller_details() -> None:
+    sensitive_marker = "private-controller-address"
+
+    class FailingSession:
+        def request(self, method: str, url: str, **kwargs: Any) -> FakeResponse:
+            raise ClientConnectionError(sensitive_marker)
+
+    client = UniFiApiClient(
+        FailingSession(),  # type: ignore[arg-type]
+        "https://controller.invalid",
+        csrf_token,
+    )
+
+    with pytest.raises(UniFiTransportError) as caught:
+        asyncio.run(client.async_request_json("GET", "/proxy/network/v2/api/info"))
+
+    assert caught.value.reason is TransportFailureReason.CONNECTION
+    assert caught.value.__cause__ is None
+    assert sensitive_marker not in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    ("headers", "raw_body"),
+    [
+        ({"Content-Length": "9"}, b"{}"),
+        ({}, b'{"value":9}'),
+    ],
+)
+def test_controller_response_size_is_bounded(
+    monkeypatch, headers: dict[str, str], raw_body: bytes
+) -> None:
+    monkeypatch.setattr(response_module, "MAX_JSON_RESPONSE_BYTES", 8)
+    response = FakeResponse(200, {}, headers)
+    response.content = FakeContent(raw_body)
+    client = UniFiApiClient(
+        FakeSession(response), "https://controller.invalid", csrf_token
+    )
+
+    with pytest.raises(UniFiSchemaError, match="safe size limit"):
+        asyncio.run(client.async_request_json("GET", "/proxy/network/v2/api/info"))
 
 
 def test_safe_read_reauthenticates_once_but_write_never_retries() -> None:

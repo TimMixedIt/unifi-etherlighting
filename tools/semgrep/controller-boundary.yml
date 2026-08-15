@@ -1,0 +1,14 @@
+rules:
+  - id: unbounded-controller-json-decoding
+    languages: [python]
+    message: Decode controller JSON through the bounded response helper.
+    severity: ERROR
+    pattern: await $RESPONSE.json(...)
+
+  - id: controller-request-must-disable-redirects
+    languages: [python]
+    message: Controller requests must explicitly disable redirects.
+    severity: ERROR
+    patterns:
+      - pattern: $SESSION.request(...)
+      - pattern-not: $SESSION.request(..., allow_redirects=False, ...)

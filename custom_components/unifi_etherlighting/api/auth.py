@@ -7,24 +7,29 @@ from contextlib import AbstractAsyncContextManager
 from typing import Any, Protocol
 from urllib.parse import urlsplit, urlunsplit
 
+from aiohttp import (
+    ClientConnectorCertificateError,
+    ClientConnectorSSLError,
+    ClientError,
+)
+
 from .errors import (
+    TransportFailureReason,
     UniFiAuthenticationError,
     UniFiPermissionError,
     UniFiSchemaError,
     UniFiTransportError,
 )
 from .models import CONFIRMED_LOGIN_ENDPOINT, CONFIRMED_LOGOUT_ENDPOINT
+from .response import BoundedJsonResponse, async_read_json
 
 CSRF_HEADER_NAME = "X-CSRF-Token"
 SESSION_COOKIE_NAME = "TOKEN"
 
 
-class AuthHttpResponse(Protocol):
+class AuthHttpResponse(BoundedJsonResponse, Protocol):
     status: int
     headers: Mapping[str, str]
-
-    async def json(self, *, content_type: str | None = None) -> Any: ...
-
 
 class AuthHttpSession(Protocol):
     def request(
@@ -97,6 +102,7 @@ class UniFiAuthSession:
                 },
                 json=payload,
                 timeout=self._timeout_seconds,
+                allow_redirects=False,
             ) as response:
                 if response.status == 401:
                     raise UniFiAuthenticationError(
@@ -108,12 +114,7 @@ class UniFiAuthSession:
                     raise UniFiAuthenticationError(
                         f"Controller login failed with HTTP {response.status}"
                     )
-                try:
-                    body = await response.json(content_type=None)
-                except Exception as err:
-                    raise UniFiSchemaError(
-                        "Controller login response was not valid JSON"
-                    ) from err
+                body = await async_read_json(response)
                 if not isinstance(body, dict):
                     raise UniFiSchemaError(
                         "Controller login response root was not an object"
@@ -128,16 +129,26 @@ class UniFiAuthSession:
         except (UniFiAuthenticationError, UniFiPermissionError, UniFiSchemaError):
             self.async_invalidate()
             raise
-        except TimeoutError as err:
+        except (ClientConnectorCertificateError, ClientConnectorSSLError):
             self.async_invalidate()
             raise UniFiTransportError(
-                "Controller login timed out", request_may_have_been_sent=False
-            ) from err
-        except OSError as err:
+                "Controller login TLS validation failed",
+                request_may_have_been_sent=False,
+                reason=TransportFailureReason.TLS,
+            ) from None
+        except TimeoutError:
             self.async_invalidate()
             raise UniFiTransportError(
-                "Controller login connection failed", request_may_have_been_sent=False
-            ) from err
+                "Controller login timed out",
+                request_may_have_been_sent=False,
+                reason=TransportFailureReason.TIMEOUT,
+            ) from None
+        except (ClientError, OSError):
+            self.async_invalidate()
+            raise UniFiTransportError(
+                "Controller login connection failed",
+                request_may_have_been_sent=False,
+            ) from None
         self._authenticated = True
 
     async def async_logout(self) -> None:
@@ -151,11 +162,29 @@ class UniFiAuthSession:
                 self._url(CONFIRMED_LOGOUT_ENDPOINT.path_template),
                 headers={"Accept": "application/json"},
                 timeout=self._timeout_seconds,
+                allow_redirects=False,
             ) as response:
                 if response.status not in {200, 401}:
                     raise UniFiAuthenticationError(
                         f"Controller logout failed with HTTP {response.status}"
                     )
+        except (ClientConnectorCertificateError, ClientConnectorSSLError):
+            raise UniFiTransportError(
+                "Controller logout TLS validation failed",
+                request_may_have_been_sent=True,
+                reason=TransportFailureReason.TLS,
+            ) from None
+        except TimeoutError:
+            raise UniFiTransportError(
+                "Controller logout timed out",
+                request_may_have_been_sent=True,
+                reason=TransportFailureReason.TIMEOUT,
+            ) from None
+        except (ClientError, OSError):
+            raise UniFiTransportError(
+                "Controller logout connection failed",
+                request_may_have_been_sent=True,
+            ) from None
         finally:
             self.async_invalidate()
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from asyncio import Lock
 from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
@@ -227,10 +228,13 @@ class BrightnessService:
         auth: UniFiAuthSession,
         controller: UniFiOsControllerAdapter,
         devices: UniFiOsDeviceAdapter,
+        *,
+        write_lock: Lock | None = None,
     ) -> None:
         self._auth = auth
         self._controller = controller
         self._devices = devices
+        self._write_lock = write_lock or Lock()
         self._blocked_devices: set[str] = set()
         self.last_verified_write: datetime | None = None
         self.last_error_code: str | None = None
@@ -288,6 +292,16 @@ class BrightnessService:
         )
 
     async def _async_set_value(
+        self, site: str, device_id: str, field: str, requested_value: object
+    ) -> VerifiedEtherlightingResult:
+        # ponytail: one lock per config entry; split by resource only if writes
+        # become frequent enough for serialization to be measurable.
+        async with self._write_lock:
+            return await self._async_set_value_locked(
+                site, device_id, field, requested_value
+            )
+
+    async def _async_set_value_locked(
         self, site: str, device_id: str, field: str, requested_value: object
     ) -> VerifiedEtherlightingResult:
         if not WRITE_CAPABILITY_ENABLED:

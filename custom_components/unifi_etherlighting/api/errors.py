@@ -21,12 +21,27 @@ class UniFiResponseError(UniFiEtherlightingError):
     """The controller returned an invalid or unsuccessful response."""
 
 
+class TransportFailureReason(StrEnum):
+    """Safe transport failure categories without retaining controller details."""
+
+    CONNECTION = "connection"
+    TIMEOUT = "timeout"
+    TLS = "tls"
+
+
 class UniFiTransportError(UniFiResponseError):
     """A transport failure occurred and a write may already have reached the controller."""
 
-    def __init__(self, message: str, *, request_may_have_been_sent: bool) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        request_may_have_been_sent: bool,
+        reason: TransportFailureReason = TransportFailureReason.CONNECTION,
+    ) -> None:
         super().__init__(message)
         self.request_may_have_been_sent = request_may_have_been_sent
+        self.reason = reason
 
 
 class UniFiSchemaError(UniFiResponseError):

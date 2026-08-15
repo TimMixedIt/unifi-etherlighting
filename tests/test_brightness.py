@@ -94,6 +94,29 @@ class FakeDevices:
         }
 
 
+class ConcurrentDevices:
+    def __init__(self) -> None:
+        self.state = complete_write_source()
+        self.active_writes = 0
+        self.max_active_writes = 0
+
+    async def async_read_device(self, site: str, device_id: str) -> dict[str, Any]:
+        return deepcopy(self.state)
+
+    async def async_write_device(
+        self, site: str, device_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        self.active_writes += 1
+        self.max_active_writes = max(self.max_active_writes, self.active_writes)
+        await asyncio.sleep(0)
+        self.state.update(deepcopy(payload))
+        self.active_writes -= 1
+        return {
+            "meta": {"rc": "ok"},
+            "data": [{"ether_lighting": deepcopy(payload["ether_lighting"])}],
+        }
+
+
 def test_payload_builder_projects_exact_ui_shape_and_preserves_original() -> None:
     original = complete_write_source()
     snapshot = deepcopy(original)
@@ -240,6 +263,27 @@ async def test_noop_control_does_not_write(monkeypatch) -> None:
     result = await service.async_set_mode("site_001", "device_001", "network")
     assert result.outcome is BrightnessWriteOutcome.APPLIED
     assert devices.writes == []
+
+
+async def test_concurrent_controls_are_serialized_without_lost_updates(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
+    devices = ConcurrentDevices()
+    service = BrightnessService(
+        FakeAuth(), FakeController(), devices  # type: ignore[arg-type]
+    )
+
+    brightness, mode = await asyncio.gather(
+        service.async_set_brightness("site_001", "device_001", 31),
+        service.async_set_mode("site_001", "device_001", "speed"),
+    )
+
+    assert brightness.outcome is BrightnessWriteOutcome.APPLIED
+    assert mode.outcome is BrightnessWriteOutcome.APPLIED
+    assert devices.max_active_writes == 1
+    assert devices.state["ether_lighting"]["brightness"] == 31
+    assert devices.state["ether_lighting"]["mode"] == "speed"
 
 
 def test_other_network_api_generation_blocks_before_write(monkeypatch) -> None:

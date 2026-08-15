@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from asyncio import Lock
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -168,11 +169,14 @@ class EtherlightingColorService:
         controller: UniFiOsControllerAdapter,
         devices: UniFiOsDeviceAdapter,
         settings: UniFiOsEtherlightingSettingsAdapter,
+        *,
+        write_lock: Lock | None = None,
     ) -> None:
         self._auth = auth
         self._controller = controller
         self._devices = devices
         self._settings = settings
+        self._write_lock = write_lock or Lock()
         self._blocked_sites: set[str] = set()
         self.last_verified_write: datetime | None = None
         self.last_error_code: str | None = None
@@ -239,6 +243,19 @@ class EtherlightingColorService:
         )
 
     async def async_set_color(
+        self,
+        site_id: str,
+        witness_device_id: str,
+        category: str,
+        key: str,
+        color: str,
+    ) -> VerifiedColorResult:
+        async with self._write_lock:
+            return await self._async_set_color_locked(
+                site_id, witness_device_id, category, key, color
+            )
+
+    async def _async_set_color_locked(
         self,
         site_id: str,
         witness_device_id: str,

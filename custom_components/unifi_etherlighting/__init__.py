@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from asyncio import Lock
 from dataclasses import dataclass
 
 from homeassistant.config_entries import ConfigEntry
@@ -17,7 +18,7 @@ from .api.adapters.unifi_os_etherlighting import (
     UniFiOsEtherlightingSettingsAdapter,
 )
 from .api.auth import UniFiAuthSession
-from .api.client import UniFiApiClient
+from .api.client import UniFiApiClient, build_controller_base_url
 from .brightness import BrightnessService
 from .color import EtherlightingColorService
 from .const import (
@@ -55,8 +56,9 @@ class RuntimeData:
 
 
 def _controller_base_url(entry: ConfigEntry) -> str:
-    scheme = "https" if entry.data[CONF_USE_SSL] else "http"
-    return f"{scheme}://{entry.data[CONF_HOST]}:{entry.data[CONF_PORT]}"
+    return build_controller_base_url(
+        entry.data[CONF_HOST], entry.data[CONF_PORT], entry.data[CONF_USE_SSL]
+    )
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -82,9 +84,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     controller = UniFiOsControllerAdapter(client)
     adapter = UniFiOsDeviceAdapter(client)
     color_settings = UniFiOsEtherlightingSettingsAdapter(client)
-    brightness_service = BrightnessService(auth, controller, adapter)
+    write_lock = Lock()
+    brightness_service = BrightnessService(
+        auth, controller, adapter, write_lock=write_lock
+    )
     color_service = EtherlightingColorService(
-        auth, controller, adapter, color_settings
+        auth, controller, adapter, color_settings, write_lock=write_lock
     )
     coordinator = EtherlightingDataUpdateCoordinator(
         hass,

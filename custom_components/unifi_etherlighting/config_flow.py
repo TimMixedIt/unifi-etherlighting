@@ -20,8 +20,9 @@ from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from .api.adapters.unifi_os_controller import UniFiOsControllerAdapter
 from .api.adapters.unifi_os_device import UniFiOsDeviceAdapter
 from .api.auth import UniFiAuthSession
-from .api.client import UniFiApiClient
+from .api.client import UniFiApiClient, build_controller_base_url
 from .api.errors import (
+    TransportFailureReason,
     UniFiAuthenticationError,
     UniFiPermissionError,
     UniFiResponseError,
@@ -87,10 +88,9 @@ def _error_key_for_stage(error: ValidationStageError) -> str:
     if isinstance(cause, UniFiPermissionError):
         return "insufficient_permissions"
     if isinstance(cause, UniFiTransportError):
-        cause_name = _safe_exception_type(cause)
-        if "Certificate" in cause_name:
+        if cause.reason is TransportFailureReason.TLS:
             return "invalid_ssl"
-        if isinstance(cause.__cause__, TimeoutError):
+        if cause.reason is TransportFailureReason.TIMEOUT:
             return "timeout"
         return "cannot_connect"
     if isinstance(cause, TimeoutError):
@@ -175,8 +175,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     def _base_url(data: dict[str, Any]) -> str:
-        scheme = "https" if data[CONF_USE_SSL] else "http"
-        return f"{scheme}://{data[CONF_HOST]}:{data[CONF_PORT]}"
+        return build_controller_base_url(
+            data[CONF_HOST], data[CONF_PORT], data[CONF_USE_SSL]
+        )
 
     async def _async_validate_connection(
         self, data: dict[str, Any]
@@ -273,10 +274,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except UniFiPermissionError:
                 errors["base"] = "insufficient_permissions"
             except UniFiTransportError as err:
-                cause_name = type(err.__cause__).__name__ if err.__cause__ else ""
-                if "Certificate" in cause_name:
+                if err.reason is TransportFailureReason.TLS:
                     errors["base"] = "invalid_ssl"
-                elif isinstance(err.__cause__, TimeoutError):
+                elif err.reason is TransportFailureReason.TIMEOUT:
                     errors["base"] = "timeout"
                 else:
                     errors["base"] = "cannot_connect"
