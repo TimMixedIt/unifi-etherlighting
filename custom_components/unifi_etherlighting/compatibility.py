@@ -9,7 +9,7 @@ from .const import BRIGHTNESS_MAXIMUM, BRIGHTNESS_MINIMUM
 
 COMPATIBILITY_PROFILE = "unifi_os_network_v10"
 MINIMUM_NETWORK_VERSION = (10, 5, 62)
-SUPPORTED_NETWORK_MAJOR = 10
+MINIMUM_NETWORK_VERSION_TEXT = ".".join(str(part) for part in MINIMUM_NETWORK_VERSION)
 
 CONFIG_NETWORK_WRITE_FIELDS = (
     "type",
@@ -57,13 +57,15 @@ def parse_network_version(value: object) -> tuple[int, int, int] | None:
 
 
 def network_version_is_supported(value: object) -> bool:
-    """Accept compatible updates within the live-validated Network API major."""
+    """Accept the live-validated Network version and every newer release.
+
+    There is deliberately no upper bound: a Network major bump does not by
+    itself change the Etherlighting API. The real gate is the complete runtime
+    Device/settings schema check plus the pre-write read and post-write
+    read-back verification, all of which still fail closed on a changed API.
+    """
     version = parse_network_version(value)
-    return (
-        version is not None
-        and version[0] == SUPPORTED_NETWORK_MAJOR
-        and version >= MINIMUM_NETWORK_VERSION
-    )
+    return version is not None and version >= MINIMUM_NETWORK_VERSION
 
 
 def device_identity_contract_is_supported(device: object) -> bool:

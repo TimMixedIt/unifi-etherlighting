@@ -134,8 +134,20 @@ def test_network_version_profile_survives_patch_and_minor_updates() -> None:
     assert parse_network_version("10.6.0-beta.1") == (10, 6, 0)
     for version in ("10.5.62", "10.5.66", "10.6.0", "10.99.99"):
         assert network_version_is_supported(version)
-    for version in ("10.5.61", "9.9.9", "11.0.0", "", "unknown", None):
+    for version in ("10.5.61", "9.9.9", "", "unknown", None):
         assert not network_version_is_supported(version)
+
+
+def test_newer_network_major_is_gated_by_the_runtime_schema() -> None:
+    for version in ("11.0.0", "11.2.5-beta.1", "12.0.0"):
+        assert network_version_is_supported(version)
+        assert runtime_contract_is_supported(version, device())
+        assert compatibility_reason(version, device()) == "compatible"
+
+    changed = device()
+    changed["config_network"].pop("gateway")
+    assert not runtime_contract_is_supported("11.0.0", changed)
+    assert compatibility_reason("11.0.0", changed) == "device_write_contract_mismatch"
 
 
 def test_incompatible_api_generation_or_schema_fails_closed() -> None:
@@ -143,7 +155,7 @@ def test_incompatible_api_generation_or_schema_fails_closed() -> None:
     assert runtime_contract_is_supported("10.5.66", current)
     assert compatibility_reason("10.5.66", current) == "compatible"
 
-    for version in ("10.5.61", "11.0.0", "unknown"):
+    for version in ("10.5.61", "9.9.9", "unknown"):
         assert not brightness_read_is_supported(version, current)
         assert not color_read_is_supported(version, current)
         assert (

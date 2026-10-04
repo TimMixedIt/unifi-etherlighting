@@ -74,7 +74,7 @@ async def test_repairs_are_idempotent_and_old_read_issue_is_removed(hass) -> Non
     unsupported = EtherlightingCoordinatorData(
         controller_status="unsupported_version_combination",
         controller_type="unifi_os",
-        network_application_version="11.0.0",
+        network_application_version="10.5.61",
         devices=(),
         colors=(),
         capabilities=data.capabilities,
@@ -90,11 +90,30 @@ async def test_repairs_are_idempotent_and_old_read_issue_is_removed(hass) -> Non
         registry.async_get_issue(DOMAIN, f"{entry.entry_id}_unsupported_combination")
         is not None
     )
+    version_issue = registry.async_get_issue(
+        DOMAIN, f"{entry.entry_id}_network_version_unconfirmed"
+    )
+    assert version_issue is not None
+    assert version_issue.translation_placeholders == {
+        "version": "10.5.61",
+        "minimum": "10.5.62",
+    }
+
+    unreadable = replace(unsupported, network_application_version="not a version")
+    await async_sync_repairs(hass, entry, unreadable)
+    version_issue = registry.async_get_issue(
+        DOMAIN, f"{entry.entry_id}_network_version_unconfirmed"
+    )
+    assert version_issue is not None
+    assert version_issue.translation_placeholders["version"] == "unknown"
+
+    newer_major = replace(data, network_application_version="11.0.0")
+    await async_sync_repairs(hass, entry, newer_major)
     assert (
         registry.async_get_issue(
             DOMAIN, f"{entry.entry_id}_network_version_unconfirmed"
         )
-        is not None
+        is None
     )
 
 

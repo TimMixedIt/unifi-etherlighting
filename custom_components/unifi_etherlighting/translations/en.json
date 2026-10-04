@@ -113,7 +113,7 @@
     },
     "network_version_unconfirmed": {
       "title": "Network API generation not supported",
-      "description": "Etherlighting writes are disabled because the detected Network version is outside the supported API generation."
+      "description": "Etherlighting writes are disabled because the detected Network version ({version}) is older than the minimum supported version {minimum} or could not be read."
     },
     "unsupported_combination": {
       "title": "Etherlighting API contract not supported",

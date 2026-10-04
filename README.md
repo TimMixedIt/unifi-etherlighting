@@ -22,19 +22,19 @@ The integration is not pinned to one exact Network patch version, switch model
 or firmware build. Runtime compatibility is established using two independent
 gates:
 
-1. The Network Application must use the supported UniFi Network 10 API
-   generation, starting at 10.5.62.
+1. The Network Application must report version 10.5.62 or newer. There is no
+   upper version limit: newer majors (for example Network 11) are accepted as
+   long as gate 2 still passes.
 2. Every selected switch must expose the complete validated Etherlighting read
    and write schema at runtime.
 
-Normal Network 10 patch and minor updates therefore keep working when the live
-API contract is unchanged. A future Network API major or a changed/missing
-schema fails closed: values may remain diagnostic, writes are disabled and a
+Network updates, including a new major, therefore keep working when the live
+API contract is unchanged. A changed/missing schema or a Network version below
+10.5.62 fails closed: values may remain diagnostic, writes are disabled and a
 Home Assistant Repair explains the safe reason.
 
-This is intentionally stricter than blindly accepting every future response,
-while avoiding the former `10.5.62` equality check that broke on routine
-updates.
+The schema check, the pre-write re-read and the post-write read-back are what
+protect your controller; the version number alone is only a lower bound.
 
 ## Write safety
 
@@ -85,7 +85,7 @@ Live validation currently covers:
 | UniFi OS | 10.5.66 | `usw` | USWED72 | 7.4.1.16850 |
 
 The table records environments that received a reversible live test. It is not
-an exact allowlist. Other Network 10 releases and Etherlighting switches are
+an exact allowlist. Other Network releases and Etherlighting switches are
 accepted only when the complete runtime contract passes.
 
 Not supported:
