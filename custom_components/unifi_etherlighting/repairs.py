@@ -6,7 +6,11 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 
-from .compatibility import network_version_is_supported
+from .compatibility import (
+    MINIMUM_NETWORK_VERSION_TEXT,
+    network_version_is_supported,
+    parse_network_version,
+)
 from .coordinator import EtherlightingCoordinatorData
 from .const import (
     CONTROLLER_STATUS_UNSUPPORTED,
@@ -21,6 +25,7 @@ def _sync_issue(
     suffix: str,
     active: bool,
     translation_key: str,
+    translation_placeholders: dict[str, str] | None = None,
 ) -> None:
     issue_id = f"{entry.entry_id}_{suffix}"
     if active:
@@ -31,6 +36,7 @@ def _sync_issue(
             is_fixable=False,
             severity=ir.IssueSeverity.WARNING,
             translation_key=translation_key,
+            translation_placeholders=translation_placeholders,
         )
     else:
         ir.async_delete_issue(hass, DOMAIN, issue_id)
@@ -47,12 +53,18 @@ async def async_sync_repairs(
         data.write_capability == WRITE_CAPABILITY_BLOCKED_STATE,
         "write_configuration_incomplete",
     )
+    detected = parse_network_version(data.network_application_version)
     _sync_issue(
         hass,
         entry,
         "network_version_unconfirmed",
         not network_version_is_supported(data.network_application_version),
         "network_version_unconfirmed",
+        {
+            # Only a successfully parsed numeric version is echoed back.
+            "version": ".".join(map(str, detected)) if detected else "unknown",
+            "minimum": MINIMUM_NETWORK_VERSION_TEXT,
+        },
     )
     _sync_issue(
         hass,

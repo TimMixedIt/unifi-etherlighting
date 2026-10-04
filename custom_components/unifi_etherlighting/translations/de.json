@@ -113,7 +113,7 @@
     },
     "network_version_unconfirmed": {
       "title": "Network-API-Generation nicht unterstützt",
-      "description": "Etherlighting-Schreibzugriffe sind deaktiviert, weil die erkannte Network-Version außerhalb der unterstützten API-Generation liegt."
+      "description": "Etherlighting-Schreibzugriffe sind deaktiviert, weil die erkannte Network-Version ({version}) älter als die minimal unterstützte Version {minimum} ist oder nicht gelesen werden konnte."
     },
     "unsupported_combination": {
       "title": "Etherlighting-API-Vertrag nicht unterstützt",

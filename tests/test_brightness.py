@@ -286,12 +286,12 @@ async def test_concurrent_controls_are_serialized_without_lost_updates(
     assert devices.state["ether_lighting"]["mode"] == "speed"
 
 
-def test_other_network_api_generation_blocks_before_write(monkeypatch) -> None:
+def test_older_network_api_generation_blocks_before_write(monkeypatch) -> None:
     monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
     devices = FakeDevices([complete_write_source(30)])
     service = BrightnessService(
         FakeAuth(),
-        FakeController("11.0.0"),
+        FakeController("10.5.61"),
         devices,  # type: ignore[arg-type]
     )
     with pytest.raises(UnsupportedCompatibilityError):

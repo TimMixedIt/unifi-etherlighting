@@ -18,9 +18,9 @@ in [SECURITY_REVIEW.md](SECURITY_REVIEW.md).
   optional HTTP status.
 - Setup, reauthentication validation and polling are read-only.
 - Authentication failures start Home Assistant reauthentication.
-- Compatible Network 10 updates are accepted only when the complete runtime
+- Network updates are accepted only when the complete runtime
   API and Device schema still match.
-- Unsupported API generations and changed schemas fail closed.
+- Network versions below the validated minimum and changed schemas fail closed.
 - Controller JSON is streamed through a fixed response-size limit.
 - One action changes exactly one allowlisted semantic value.
 - Read-modify-write actions are serialized per config entry to prevent one

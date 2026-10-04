@@ -7,14 +7,13 @@ The production gate is `unifi_os_network_v10`.
 | Check | Requirement |
 |---|---|
 | Controller | UniFi OS |
-| Network API generation | major 10, version 10.5.62 or newer |
+| Network version | 10.5.62 or newer (no upper bound) |
 | Device identity | `type=usw`, non-empty Device ID, model and firmware |
 | Etherlighting reads | valid `brightness`, `behavior`, `mode`, `led_mode` |
 | Device write source | all UI-observed top-level and `config_network` fields present |
 | Colors | complete validated settings schema plus compatible witness Device |
 
-The Network version is parsed, not compared as an opaque string. Patch and
-minor updates inside Network 10 are accepted only after the live response and
+The Network version is parsed, not compared as an opaque string. Patch, minor and major updates are accepted only after the live response and
 Device contract pass. Model and firmware values are reported for diagnostics,
 but are not used as brittle equality gates.
 
@@ -28,7 +27,8 @@ but are not used as brittle equality gates.
 ## Fail-closed behavior
 
 - A malformed version or Network version below 10.5.62 is unsupported.
-- A future Network major is unsupported until its API contract is validated.
+- A newer Network major is accepted only while the complete Device and
+  settings schema still matches; any deviation disables the affected controls.
 - A missing/changed read field disables that capability.
 - A missing full-write field keeps the readable value but disables its write.
 - A changed color/settings schema disables color entities.
