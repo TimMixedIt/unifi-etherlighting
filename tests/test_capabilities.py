@@ -20,6 +20,7 @@ from custom_components.unifi_etherlighting.api.models import (
 from custom_components.unifi_etherlighting.compatibility import (
     COMPATIBILITY_PROFILE,
     compatibility_reason,
+    device_contract_mismatches,
     device_write_contract_is_supported,
     network_version_is_supported,
     parse_network_version,
@@ -177,3 +178,86 @@ def test_incompatible_api_generation_or_schema_fails_closed() -> None:
     wrong_led_mode["ether_lighting"]["led_mode"] = "off"
     assert not device_write_contract_is_supported(wrong_led_mode)
     assert not runtime_contract_is_supported("10.5.66", wrong_led_mode)
+
+
+def test_contract_mismatches_name_each_failed_check() -> None:
+    assert device_contract_mismatches(device()) == ()
+    assert device_contract_mismatches("not a device") == ("device",)
+
+    no_ether = device()
+    no_ether.pop("ether_lighting")
+    assert device_contract_mismatches(no_ether) == ("ether_lighting",)
+
+    sparse = device()
+    for field in ("lcm_orientation_override", "snmp_contact"):
+        sparse.pop(field)
+    sparse["config_network"].pop("gateway")
+    sparse["ether_lighting"]["led_mode"] = "off"
+    sparse["lcm_night_mode_enabled"] = "yes"
+    assert device_contract_mismatches(sparse) == (
+        "ether_lighting.led_mode",
+        "config_network.gateway",
+        "lcm_orientation_override",
+        "snmp_contact",
+        "lcm_night_mode_enabled",
+    )
+
+    wrong_type = device()
+    wrong_type["type"] = "uap"
+    wrong_type["ether_lighting"]["brightness"] = 0
+    wrong_type["ether_lighting"]["behavior"] = "rainbow"
+    wrong_type["ether_lighting"]["mode"] = "other"
+    assert device_contract_mismatches(wrong_type) == (
+        "type",
+        "ether_lighting.brightness",
+        "ether_lighting.behavior",
+        "ether_lighting.mode",
+    )
+
+
+def test_contract_mismatches_agree_with_the_write_contract() -> None:
+    def mutations():
+        yield device()
+        for field in device():
+            changed = device()
+            changed.pop(field)
+            yield changed
+        for section in ("ether_lighting", "config_network"):
+            for field in device()[section]:
+                changed = device()
+                changed[section].pop(field)
+                yield changed
+        for value in (None, "", 0, 101, True, "steady", [], {}):
+            for section, field in (
+                ("ether_lighting", "brightness"),
+                ("ether_lighting", "behavior"),
+                ("ether_lighting", "mode"),
+                ("ether_lighting", "led_mode"),
+            ):
+                changed = device()
+                changed[section][field] = value
+                yield changed
+        for value in (None, "", 1, "x"):
+            for field in ("type", "_id", "model", "version", "lcm_night_mode_enabled"):
+                changed = device()
+                changed[field] = value
+                yield changed
+
+    for candidate in mutations():
+        assert (device_contract_mismatches(candidate) == ()) == (
+            device_write_contract_is_supported(candidate)
+        ), candidate
+        # Labels never carry controller values.
+        for label in device_contract_mismatches(candidate):
+            assert label.replace(".", "").replace("_", "").isalnum()
+
+
+def test_unhashable_controller_values_fail_closed_instead_of_raising() -> None:
+    for value in ([], {}, ["steady"], {"x": 1}):
+        changed = device()
+        changed["ether_lighting"]["behavior"] = value
+        changed["ether_lighting"]["mode"] = value
+        assert not behavior_read_is_supported("10.6.101", changed)
+        assert not mode_read_is_supported("10.6.101", changed)
+        assert not device_write_contract_is_supported(changed)
+        assert "ether_lighting.behavior" in device_contract_mismatches(changed)

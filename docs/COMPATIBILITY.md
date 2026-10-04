@@ -24,6 +24,17 @@ but are not used as brittle equality gates.
 | 10.5.62 | `usw` | USWED72 | 7.4.1.16850 | reversible controls and colors |
 | 10.5.66 | `usw` | USWED72 | 7.4.1.16850 | reversible post-update validation |
 
+## Reading the setup error
+
+If setup stops with "No switch exposes the complete supported Etherlighting API
+contract", the message lists, per switch model, every contract check that
+failed, for example `USPXG10: ether_lighting.led_mode, lcm_orientation_override`.
+The entries are fixed field names from this integration, never controller
+values, so the line can be pasted into a GitHub issue as is. `ether_lighting`
+alone means the switch reports no Etherlighting configuration; a `lcm_*`,
+`config_network.*` or `snmp_*` entry means the Device object lacks a field the
+UniFi UI sends when it writes the Etherlighting settings.
+
 ## Fail-closed behavior
 
 - A malformed version or Network version below 10.5.62 is unsupported.

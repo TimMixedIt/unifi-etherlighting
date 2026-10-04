@@ -30,6 +30,7 @@ from .api.errors import (
     UniFiTransportError,
 )
 from .compatibility import (
+    device_contract_mismatches,
     network_version_is_supported,
     runtime_contract_is_supported,
 )
@@ -48,6 +49,8 @@ from .const import (
 
 _SITE_SLUG = re.compile(r"^[A-Za-z0-9_-]+$")
 _HTTP_STATUS = re.compile(r"\bHTTP ([1-5][0-9]{2})\b")
+_SAFE_MODEL = re.compile(r"^[A-Za-z0-9._-]{1,32}$")
+_MAX_REPORTED_SWITCHES = 4
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -124,6 +127,21 @@ def _log_stage_failure(error: ValidationStageError, category: str) -> None:
     )
 
 
+def _contract_mismatch_summary(devices: tuple[dict[str, Any], ...]) -> str:
+    """Summarize failed contract checks per switch with fixed labels only."""
+    switches = [device for device in devices if device.get("type") == "usw"]
+    if not switches:
+        return "no_switch_returned"
+    parts = []
+    for device in switches[:_MAX_REPORTED_SWITCHES]:
+        model = device.get("model")
+        label = model if isinstance(model, str) and _SAFE_MODEL.fullmatch(model) else "switch"
+        parts.append(f"{label}: {', '.join(device_contract_mismatches(device))}")
+    if len(switches) > _MAX_REPORTED_SWITCHES:
+        parts.append(f"+{len(switches) - _MAX_REPORTED_SWITCHES} more")
+    return "; ".join(parts)
+
+
 def _normalise_unique_id(host: str, port: int) -> str:
     return f"{host.strip().lower()}:{port}"
 
@@ -172,6 +190,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self._pending_data: dict[str, Any] | None = None
         self._compatible_devices: tuple[dict[str, Any], ...] = ()
+        self._contract_details = ""
 
     @staticmethod
     def _base_url(data: dict[str, Any]) -> str:
@@ -223,6 +242,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if runtime_contract_is_supported(network_version, device)
             )
             if not compatible:
+                self._contract_details = _contract_mismatch_summary(all_devices)
+                _LOGGER.warning(
+                    "No compatible Etherlighting switch; failed contract "
+                    "checks: %s",
+                    self._contract_details,
+                )
                 raise vol.Invalid("no_compatible_devices")
             return compatible
         except ValidationStageError:
@@ -242,6 +267,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         errors: dict[str, str] = {}
+        placeholders: dict[str, str] | None = None
         if user_input is not None:
             try:
                 validated = dict(CONNECTION_SCHEMA(user_input))
@@ -256,6 +282,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except ValidationStageError as err:
                 category = _error_key_for_stage(err)
                 _log_stage_failure(err, category)
+                if category == "no_compatible_devices" and self._contract_details:
+                    category = "no_compatible_devices_detail"
+                    placeholders = {"details": self._contract_details}
                 errors["base"] = category
             except vol.Invalid as err:
                 reason = str(err)
@@ -295,7 +324,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._compatible_devices = compatible
                 return await self.async_step_devices()
         return self.async_show_form(
-            step_id="user", data_schema=CONNECTION_SCHEMA, errors=errors
+            step_id="user",
+            data_schema=CONNECTION_SCHEMA,
+            errors=errors,
+            description_placeholders=placeholders,
         )
 
     async def async_step_devices(

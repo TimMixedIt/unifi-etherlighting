@@ -44,6 +44,11 @@ _BEHAVIOR_VALUES = frozenset({"steady", "breath"})
 _MODE_VALUES = frozenset({"network", "speed"})
 
 
+def _is_one_of(value: object, allowed: frozenset[str]) -> bool:
+    """Membership test that tolerates unhashable controller values."""
+    return isinstance(value, str) and value in allowed
+
+
 def parse_network_version(value: object) -> tuple[int, int, int] | None:
     """Parse the numeric API generation without retaining a version suffix."""
     if not isinstance(value, str):
@@ -106,7 +111,7 @@ def behavior_read_contract_is_supported(device: object) -> bool:
     assert isinstance(device, Mapping)
     ether_lighting = device["ether_lighting"]
     assert isinstance(ether_lighting, Mapping)
-    return ether_lighting.get("behavior") in _BEHAVIOR_VALUES
+    return _is_one_of(ether_lighting.get("behavior"), _BEHAVIOR_VALUES)
 
 
 def mode_read_contract_is_supported(device: object) -> bool:
@@ -116,7 +121,7 @@ def mode_read_contract_is_supported(device: object) -> bool:
     assert isinstance(device, Mapping)
     ether_lighting = device["ether_lighting"]
     assert isinstance(ether_lighting, Mapping)
-    return ether_lighting.get("mode") in _MODE_VALUES
+    return _is_one_of(ether_lighting.get("mode"), _MODE_VALUES)
 
 
 def device_write_contract_is_supported(device: object) -> bool:
@@ -146,6 +151,66 @@ def device_write_contract_is_supported(device: object) -> bool:
         field not in device or isinstance(device[field], bool)
         for field in UI_DEFAULTED_TOP_LEVEL_FIELDS
     )
+
+
+def device_contract_mismatches(device: object) -> tuple[str, ...]:
+    """Name every failed Device contract check using fixed labels only.
+
+    Mirrors device_write_contract_is_supported(): the result is empty exactly
+    when that function returns True. Labels are built from this module's field
+    constants, never from controller values, so they are safe to log and show.
+    """
+    if not isinstance(device, Mapping):
+        return ("device",)
+    found: list[str] = []
+
+    def flag(label: str) -> None:
+        if label not in found:
+            found.append(label)
+
+    if device.get("type") != "usw":
+        flag("type")
+    for field in ("_id", "model", "version"):
+        value = device.get(field)
+        if not isinstance(value, str) or not value:
+            flag(field)
+
+    ether_lighting = device.get("ether_lighting")
+    if not isinstance(ether_lighting, Mapping):
+        flag("ether_lighting")
+    else:
+        brightness = ether_lighting.get("brightness")
+        if not (
+            isinstance(brightness, int)
+            and not isinstance(brightness, bool)
+            and BRIGHTNESS_MINIMUM <= brightness <= BRIGHTNESS_MAXIMUM
+        ):
+            flag("ether_lighting.brightness")
+        if not _is_one_of(ether_lighting.get("behavior"), _BEHAVIOR_VALUES):
+            flag("ether_lighting.behavior")
+        if not _is_one_of(ether_lighting.get("mode"), _MODE_VALUES):
+            flag("ether_lighting.mode")
+        if ether_lighting.get("led_mode") != "etherlighting":
+            flag("ether_lighting.led_mode")
+        for field in ETHER_LIGHTING_WRITE_FIELDS:
+            if field not in ether_lighting:
+                flag(f"ether_lighting.{field}")
+
+    config_network = device.get("config_network")
+    if not isinstance(config_network, Mapping):
+        flag("config_network")
+    else:
+        for field in CONFIG_NETWORK_WRITE_FIELDS:
+            if field not in config_network:
+                flag(f"config_network.{field}")
+
+    for field in TOP_LEVEL_WRITE_FIELDS:
+        if field not in device:
+            flag(field)
+    for field in UI_DEFAULTED_TOP_LEVEL_FIELDS:
+        if field in device and not isinstance(device[field], bool):
+            flag(field)
+    return tuple(found)
 
 
 def runtime_contract_is_supported(

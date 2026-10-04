@@ -45,6 +45,7 @@
       "site_not_found": "The UniFi Site could not be read.",
       "no_devices": "No devices were returned for this UniFi Site.",
       "no_compatible_devices": "No switch exposes the complete supported Etherlighting API contract.",
+      "no_compatible_devices_detail": "No switch exposes the complete supported Etherlighting API contract. Failed checks per switch: {details}. Please include this line in a GitHub issue.",
       "unsupported_network_version": "This Network Application uses an unsupported API generation.",
       "unsupported_firmware": "The detected switch firmware is not confirmed for Etherlighting writes.",
       "unknown": "An unexpected error occurred.",
