@@ -45,6 +45,7 @@
       "site_not_found": "Die UniFi Site konnte nicht gelesen werden.",
       "no_devices": "Für diese UniFi Site wurden keine Geräte geliefert.",
       "no_compatible_devices": "Kein Switch liefert den vollständigen unterstützten Etherlighting-API-Vertrag.",
+      "no_compatible_devices_detail": "Kein Switch liefert den vollständigen unterstützten Etherlighting-API-Vertrag. Fehlgeschlagene Prüfungen je Switch: {details}. Bitte diese Zeile in einem GitHub-Issue angeben.",
       "unsupported_network_version": "Diese Network-Application verwendet eine nicht unterstützte API-Generation.",
       "unsupported_firmware": "Die erkannte Switch-Firmware ist nicht für Etherlighting-Schreibzugriffe bestätigt.",
       "unknown": "Ein unerwarteter Fehler ist aufgetreten.",

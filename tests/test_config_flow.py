@@ -511,3 +511,83 @@ def test_safe_stage_log_keeps_only_numeric_http_status(
     assert "stage=device_read" in caplog.text
     assert "http_status=503" in caplog.text
     assert "sensitive diagnostic marker" not in caplog.text
+
+
+def _validation_patches(devices_return, auth):
+    controller = MagicMock()
+    controller.async_read_network_application_version = AsyncMock(
+        return_value="10.6.101"
+    )
+    devices = MagicMock()
+    devices.async_read_devices = AsyncMock(return_value=devices_return)
+    return (
+        patch(
+            "custom_components.unifi_etherlighting.config_flow.async_create_clientsession"
+        ),
+        patch(
+            "custom_components.unifi_etherlighting.config_flow.UniFiAuthSession",
+            return_value=auth,
+        ),
+        patch("custom_components.unifi_etherlighting.config_flow.UniFiApiClient"),
+        patch(
+            "custom_components.unifi_etherlighting.config_flow.UniFiOsControllerAdapter",
+            return_value=controller,
+        ),
+        patch(
+            "custom_components.unifi_etherlighting.config_flow.UniFiOsDeviceAdapter",
+            return_value=devices,
+        ),
+    )
+
+
+async def test_incompatible_switch_reports_failed_checks_without_values(
+    hass, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(
+        logging.WARNING, logger="custom_components.unifi_etherlighting.config_flow"
+    )
+    sparse = json.loads(json.dumps(DEVICE))
+    sparse["model"] = "USPXG10"
+    sparse["name"] = "secret-switch-name"
+    sparse.pop("lcm_orientation_override")
+    sparse["config_network"].pop("gateway")
+    unrelated_ap = {"type": "uap", "model": "U7PRO", "_id": "ap_001"}
+    auth = MagicMock()
+    auth.authenticated = True
+    auth.async_login = AsyncMock()
+    auth.async_logout = AsyncMock()
+    auth.async_get_csrf_token = AsyncMock(return_value=None)
+
+    patches = _validation_patches([unrelated_ap, sparse], auth)
+    with patches[0], patches[1], patches[2], patches[3], patches[4]:
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}, data=None
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], CONNECTION
+        )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "user"
+    assert result["errors"] == {"base": "no_compatible_devices_detail"}
+    assert result["description_placeholders"] == {
+        "details": "USPXG10: config_network.gateway, lcm_orientation_override"
+    }
+    assert "config_network.gateway" in caplog.text
+    assert "secret-switch-name" not in caplog.text
+    assert "U7PRO" not in caplog.text
+
+
+def test_mismatch_summary_sanitizes_models_and_bounds_output() -> None:
+    from custom_components.unifi_etherlighting.config_flow import (
+        _contract_mismatch_summary,
+    )
+
+    assert _contract_mismatch_summary(()) == "no_switch_returned"
+    assert _contract_mismatch_summary(({"type": "uap"},)) == "no_switch_returned"
+    odd = {"type": "usw", "model": "bad model!\n{x}"}
+    assert _contract_mismatch_summary((odd,)).startswith("switch: ")
+    many = tuple({"type": "usw", "model": f"M{i}"} for i in range(6))
+    summary = _contract_mismatch_summary(many)
+    assert summary.count("M") == 4
+    assert summary.endswith("+2 more")
