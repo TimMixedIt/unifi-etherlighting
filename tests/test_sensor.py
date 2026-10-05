@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 from pathlib import Path
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.unifi_etherlighting.const import DOMAIN
+from custom_components.unifi_etherlighting.const import DOMAIN, VERSION
 from custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting import (
     NetworkLabel,
     parse_etherlighting_settings_response,
@@ -89,6 +90,25 @@ async def test_diagnostic_sensor_states_are_bounded(hass) -> None:
         coordinator, "controller-entry"
     )
     assert status.native_value == "online"
+    assert status.extra_state_attributes == {
+        "runtime_integration_version": VERSION,
+        "brightness": "reversible",
+        "behavior": "reversible",
+        "mode": "reversible",
+        "network_color": "reversible",
+        "speed_color": "reversible",
+        "device_write": "write_accepted",
+        "enabled": "captured",
+        "port_control": "unknown",
+        "compatibility_profile": "unifi_os_network_v10",
+        "network_api_generation_supported": True,
+        "contract_compatible_device_count": 1,
+        "configured_device_count": 1,
+        "selected_device_count": 1,
+        "read_contract_compatible_device_count": 1,
+        "runtime_read_contract_reason": "read_contract_supported",
+        "read_contract_mismatch_fields": [],
+    }
     assert confirmed.extra_state_attributes == {
         "brightness": "confirmed",
         "behavior": "confirmed",
@@ -98,6 +118,8 @@ async def test_diagnostic_sensor_states_are_bounded(hass) -> None:
     }
     assert write_status.native_value == "ready"
     assert write_status.extra_state_attributes == {
+        "global_write_capability": "ready",
+        "effective_write_ready": True,
         "brightness_read_supported": True,
         "brightness_write_supported": "confirmed",
         "brightness_write_ready": True,
@@ -113,3 +135,23 @@ async def test_diagnostic_sensor_states_are_bounded(hass) -> None:
     assert "behavior" not in candidates.extra_state_attributes
     assert "enabled" in candidates.extra_state_attributes
     assert "payload" not in candidates.extra_state_attributes
+
+    coordinator.data = replace(
+        coordinator.data,
+        devices=tuple(
+            replace(
+                device,
+                brightness_write_ready=False,
+                behavior_write_ready=False,
+                mode_write_ready=False,
+            )
+            for device in coordinator.data.devices
+        ),
+        colors=(),
+    )
+    assert write_status.native_value == "not_ready"
+    assert write_status.extra_state_attributes["global_write_capability"] == "ready"
+    assert not write_status.extra_state_attributes["effective_write_ready"]
+
+    coordinator.data = replace(coordinator.data, write_capability="blocked")
+    assert write_status.native_value == "blocked"

@@ -31,6 +31,7 @@ from .brightness import BrightnessService
 from .color import EtherlightingColorService
 from .compatibility import (
     COMPATIBILITY_PROFILE,
+    device_read_contract_mismatches,
     network_version_is_supported,
     runtime_contract_is_supported,
 )
@@ -69,6 +70,7 @@ class DiagnosticDevice:
     mode_write_supported: CapabilityState
     mode_write_ready: bool
     write_blocked: bool
+    read_contract_mismatches: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +105,11 @@ class EtherlightingCoordinatorData:
     compatibility_profile: str = COMPATIBILITY_PROFILE
     network_api_generation_supported: bool = False
     contract_compatible_device_count: int = 0
+    configured_device_count: int = 0
+    selected_device_count: int = 0
+    read_contract_compatible_device_count: int = 0
+    runtime_read_contract_reason: str = "unknown"
+    read_contract_mismatch_fields: tuple[str, ...] = ()
 
 
 def _device_brightness(device: dict[str, Any]) -> int | None:
@@ -204,6 +211,7 @@ class EtherlightingDataUpdateCoordinator(
                     write_blocked=self._brightness_service.is_write_blocked(
                         str(device["_id"])
                     ),
+                    read_contract_mismatches=device_read_contract_mismatches(device),
                 )
             )
         diagnostic_devices = tuple(diagnostic_devices_list)
@@ -262,15 +270,33 @@ class EtherlightingDataUpdateCoordinator(
                     )
                 )
             colors = tuple(color_items)
+        read_contract_compatible_device_count = sum(
+            device.brightness_read_supported
+            or device.behavior_read_supported
+            or device.mode_read_supported
+            for device in diagnostic_devices
+        )
         status = (
             CONTROLLER_STATUS_ONLINE
-            if any(
-                device.brightness_read_supported
-                or device.behavior_read_supported
-                or device.mode_read_supported
-                for device in diagnostic_devices
-            )
+            if read_contract_compatible_device_count
             else CONTROLLER_STATUS_UNSUPPORTED
+        )
+        if not network_version_is_supported(network_version):
+            runtime_read_contract_reason = "unsupported_network_api_generation"
+        elif not selected_ids:
+            runtime_read_contract_reason = "no_configured_devices"
+        elif not selected:
+            runtime_read_contract_reason = "selected_devices_not_returned"
+        elif not read_contract_compatible_device_count:
+            runtime_read_contract_reason = "selected_devices_read_contract_mismatch"
+        else:
+            runtime_read_contract_reason = "read_contract_supported"
+        read_contract_mismatch_fields = tuple(
+            dict.fromkeys(
+                label
+                for device in diagnostic_devices
+                for label in device.read_contract_mismatches
+            )
         )
         return EtherlightingCoordinatorData(
             controller_status=status,
@@ -306,6 +332,11 @@ class EtherlightingDataUpdateCoordinator(
                 runtime_contract_is_supported(network_version, device)
                 for device in selected
             ),
+            configured_device_count=len(selected_ids),
+            selected_device_count=len(selected),
+            read_contract_compatible_device_count=read_contract_compatible_device_count,
+            runtime_read_contract_reason=runtime_read_contract_reason,
+            read_contract_mismatch_fields=read_contract_mismatch_fields,
         )
 
     def device(self, device_id: str) -> DiagnosticDevice | None:
