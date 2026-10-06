@@ -1,0 +1,61 @@
+name: Publish GitHub release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-release-${{ github.ref_name }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify the release tag matches the integration version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Expected a vMAJOR.MINOR.PATCH tag, got: $TAG" >&2
+            exit 1
+          fi
+
+          VERSION="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          print(json.loads(
+              Path("custom_components/unifi_etherlighting/manifest.json").read_text()
+          )["version"])
+          PY
+          )"
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Manifest version is not a release version: $VERSION" >&2
+            exit 1
+          fi
+          if [[ "$VERSION" != "${TAG#v}" ]]; then
+            echo "Tag $TAG does not match manifest version $VERSION" >&2
+            exit 1
+          fi
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists."
+            exit 0
+          fi
+
+          gh release create "$TAG" \
+            --verify-tag \
+            --title "UniFi Etherlighting $TAG" \
+            --generate-notes
