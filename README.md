@@ -110,9 +110,17 @@ Useful status fields:
 - `compatibility_profile`
 - `network_api_generation_supported`
 - `contract_compatible_device_count`
+- `runtime_integration_version` (the Python code currently loaded by Home Assistant)
+- `runtime_read_contract_reason` and `read_contract_mismatch_fields`
 - `controller_status`
 - `last_error_code`
 - per-capability `read_supported`, `write_supported` and `write_ready`
+- `effective_write_readiness` / `effective_write_ready`, which describe whether
+  at least one current, unblocked control can safely write
+
+`write_capability` is retained in diagnostics as the integration-wide release
+gate. It is not a per-switch write permission; use the effective readiness
+fields (and the matching diagnostic sensor) for the current controller.
 
 The Repair **Etherlighting write could not be verified** means the independent
 read could not prove either the requested state or the unchanged original

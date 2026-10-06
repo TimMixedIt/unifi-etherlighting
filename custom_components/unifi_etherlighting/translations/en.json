@@ -89,7 +89,7 @@
         "name": "Network Application version"
       },
       "brightness_write_capability": {
-        "name": "Etherlighting write readiness"
+        "name": "Effective Etherlighting write readiness"
       },
       "confirmed_capabilities": {
         "name": "Confirmed capabilities"

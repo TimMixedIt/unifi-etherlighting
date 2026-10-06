@@ -6,7 +6,7 @@ from datetime import timedelta
 
 DOMAIN = "unifi_etherlighting"
 NAME = "UniFi Etherlighting"
-VERSION = "0.5.4"
+VERSION = "0.5.5"
 
 CONF_HOST = "host"
 CONF_PORT = "port"
@@ -41,8 +41,15 @@ SUPPORTED_SPEED_COLOR_KEYS: tuple[str, ...] = (
 )
 
 WRITE_CAPABILITY_ENABLED = True
-WRITE_CAPABILITY_STATE = "ready"
 WRITE_CAPABILITY_BLOCKED_STATE = "blocked"
+
+
+def write_capability_state(enabled: bool) -> str:
+    """Return the bounded release-wide write-gate state."""
+    return "ready" if enabled else WRITE_CAPABILITY_BLOCKED_STATE
+
+
+WRITE_CAPABILITY_STATE = write_capability_state(WRITE_CAPABILITY_ENABLED)
 WRITE_BLOCK_REASON = "confirmed_write_configuration_incomplete"
 ACTIVE_WRITE_BLOCK_REASON: str | None = (
     None if WRITE_CAPABILITY_ENABLED else WRITE_BLOCK_REASON

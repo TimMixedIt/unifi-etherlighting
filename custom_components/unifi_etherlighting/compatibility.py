@@ -43,6 +43,23 @@ _NETWORK_VERSION = re.compile(
 _BEHAVIOR_VALUES = frozenset({"steady", "breath"})
 _MODE_VALUES = frozenset({"network", "speed"})
 
+# These labels describe contract *fields*, never controller-provided values.  They
+# are deliberately shared with diagnostics so that a future caller cannot turn a
+# diagnostic field into a raw Device-value echo.
+READ_CONTRACT_MISMATCH_LABELS = frozenset(
+    {
+        "device",
+        "type",
+        "_id",
+        "model",
+        "version",
+        "ether_lighting",
+        "ether_lighting.brightness",
+        "ether_lighting.behavior",
+        "ether_lighting.mode",
+    }
+)
+
 
 def _is_one_of(value: object, allowed: frozenset[str]) -> bool:
     """Membership test that tolerates unhashable controller values."""
@@ -122,6 +139,48 @@ def mode_read_contract_is_supported(device: object) -> bool:
     ether_lighting = device["ether_lighting"]
     assert isinstance(ether_lighting, Mapping)
     return _is_one_of(ether_lighting.get("mode"), _MODE_VALUES)
+
+
+def device_read_contract_mismatches(device: object) -> tuple[str, ...]:
+    """Name failed read-contract checks using fixed, non-controller labels.
+
+    This is intentionally narrower than :func:`device_contract_mismatches`:
+    missing write-only fields must not obscure why a selected Device cannot be
+    read.  An empty result means all three supported Device controls have a
+    valid read contract; it does not make any write claim.
+    """
+    if not isinstance(device, Mapping):
+        return ("device",)
+    found: list[str] = []
+
+    def flag(label: str) -> None:
+        if label not in found:
+            found.append(label)
+
+    if device.get("type") != "usw":
+        flag("type")
+    for field in ("_id", "model", "version"):
+        value = device.get(field)
+        if not isinstance(value, str) or not value:
+            flag(field)
+
+    ether_lighting = device.get("ether_lighting")
+    if not isinstance(ether_lighting, Mapping):
+        flag("ether_lighting")
+        return tuple(found)
+
+    brightness = ether_lighting.get("brightness")
+    if not (
+        isinstance(brightness, int)
+        and not isinstance(brightness, bool)
+        and BRIGHTNESS_MINIMUM <= brightness <= BRIGHTNESS_MAXIMUM
+    ):
+        flag("ether_lighting.brightness")
+    if not _is_one_of(ether_lighting.get("behavior"), _BEHAVIOR_VALUES):
+        flag("ether_lighting.behavior")
+    if not _is_one_of(ether_lighting.get("mode"), _MODE_VALUES):
+        flag("ether_lighting.mode")
+    return tuple(found)
 
 
 def device_write_contract_is_supported(device: object) -> bool:

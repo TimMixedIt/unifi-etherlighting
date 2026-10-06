@@ -21,6 +21,7 @@ from custom_components.unifi_etherlighting.compatibility import (
     COMPATIBILITY_PROFILE,
     compatibility_reason,
     device_contract_mismatches,
+    device_read_contract_mismatches,
     device_write_contract_is_supported,
     network_version_is_supported,
     parse_network_version,
@@ -250,6 +251,32 @@ def test_contract_mismatches_agree_with_the_write_contract() -> None:
         # Labels never carry controller values.
         for label in device_contract_mismatches(candidate):
             assert label.replace(".", "").replace("_", "").isalnum()
+
+
+def test_read_contract_mismatches_exclude_write_only_fields() -> None:
+    exact = device()
+    assert device_read_contract_mismatches(exact) == ()
+
+    write_only_mismatch = deepcopy(exact)
+    write_only_mismatch["config_network"].pop("gateway")
+    write_only_mismatch["ether_lighting"]["led_mode"] = "off"
+    assert device_read_contract_mismatches(write_only_mismatch) == ()
+
+    changed = deepcopy(exact)
+    changed["ether_lighting"]["brightness"] = 0
+    changed["ether_lighting"]["behavior"] = []
+    changed["ether_lighting"]["mode"] = "unexpected"
+    assert device_read_contract_mismatches(changed) == (
+        "ether_lighting.brightness",
+        "ether_lighting.behavior",
+        "ether_lighting.mode",
+    )
+
+    missing_ether_lighting = deepcopy(exact)
+    missing_ether_lighting.pop("ether_lighting")
+    assert device_read_contract_mismatches(missing_ether_lighting) == (
+        "ether_lighting",
+    )
 
 
 def test_unhashable_controller_values_fail_closed_instead_of_raising() -> None:

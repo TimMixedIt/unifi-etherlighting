@@ -9,7 +9,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from . import RuntimeData
+from .compatibility import READ_CONTRACT_MISMATCH_LABELS
 from .const import VERSION
+from .write_readiness import effective_write_ready, effective_write_readiness
 
 _ALLOWED_KEYS = frozenset(
     {
@@ -20,6 +22,12 @@ _ALLOWED_KEYS = frozenset(
         "compatibility_profile",
         "network_api_generation_supported",
         "contract_compatible_device_count",
+        "configured_device_count",
+        "selected_device_count",
+        "read_contract_compatible_device_count",
+        "runtime_read_contract_reason",
+        "read_contract_mismatch_fields",
+        "runtime_integration_version",
         "device_count",
         "switch_models",
         "firmware_versions",
@@ -28,6 +36,9 @@ _ALLOWED_KEYS = frozenset(
         "last_successful_read",
         "last_verified_write",
         "write_capability",
+        "global_write_capability",
+        "effective_write_readiness",
+        "effective_write_ready",
         "write_block_reason",
         "missing_confirmed_fields",
         "brightness_read_supported",
@@ -57,6 +68,16 @@ _ALLOWED_OPTIONS = frozenset(
     }
 )
 _ALLOWED_CAPABILITY_KEYS = frozenset({"capability", "state", "evidence"})
+_ALLOWED_RUNTIME_READ_CONTRACT_REASONS = frozenset(
+    {
+        "unknown",
+        "unsupported_network_api_generation",
+        "no_configured_devices",
+        "selected_devices_not_returned",
+        "selected_devices_read_contract_mismatch",
+        "read_contract_supported",
+    }
+)
 
 
 def _write_support_state(devices: tuple[Any, ...], attribute: str) -> str:
@@ -89,6 +110,15 @@ def redact_diagnostics(data: Mapping[str, Any]) -> dict[str, Any]:
                 for item in value
                 if isinstance(item, Mapping)
             ]
+        elif key == "runtime_read_contract_reason":
+            if value in _ALLOWED_RUNTIME_READ_CONTRACT_REASONS:
+                redacted[key] = value
+        elif key == "read_contract_mismatch_fields" and isinstance(
+            value, (list, tuple)
+        ):
+            redacted[key] = [
+                label for label in value if label in READ_CONTRACT_MISMATCH_LABELS
+            ]
         elif isinstance(value, (str, int, float, bool, type(None), list, tuple)):
             redacted[key] = value
     return redacted
@@ -100,14 +130,29 @@ async def async_get_config_entry_diagnostics(
     """Return bounded evidence metadata and never entry credentials or raw responses."""
     runtime: RuntimeData = entry.runtime_data
     data = runtime.coordinator.data
+    effective_ready = effective_write_ready(
+        data.write_capability, data.devices, data.colors
+    )
     raw = {
         "integration_version": VERSION,
+        # This comes from the imported runtime module, unlike a version shown by
+        # HACS before Home Assistant has reloaded the custom integration.
+        "runtime_integration_version": VERSION,
         "controller_status": data.controller_status,
         "controller_type": data.controller_type,
         "network_application_version": data.network_application_version,
         "compatibility_profile": data.compatibility_profile,
         "network_api_generation_supported": data.network_api_generation_supported,
         "contract_compatible_device_count": data.contract_compatible_device_count,
+        "configured_device_count": data.configured_device_count,
+        "selected_device_count": data.selected_device_count,
+        "read_contract_compatible_device_count": (
+            data.read_contract_compatible_device_count
+        ),
+        "runtime_read_contract_reason": data.runtime_read_contract_reason,
+        "read_contract_mismatch_fields": list(
+            data.read_contract_mismatch_fields
+        ),
         "device_count": len(data.devices),
         "switch_models": sorted({device.model for device in data.devices}),
         "firmware_versions": sorted({device.firmware for device in data.devices}),
@@ -120,7 +165,14 @@ async def async_get_config_entry_diagnostics(
             for item in data.capabilities
         ],
         "last_error_code": data.last_error,
+        # Retain the legacy field: it is a release-wide kill switch, not a
+        # statement that the current Device contract permits writes.
         "write_capability": data.write_capability,
+        "global_write_capability": data.write_capability,
+        "effective_write_readiness": effective_write_readiness(
+            data.write_capability, data.devices, data.colors
+        ),
+        "effective_write_ready": effective_ready,
         "write_block_reason": data.write_block_reason,
         "missing_confirmed_fields": list(data.missing_confirmed_fields),
         "brightness_read_supported": any(

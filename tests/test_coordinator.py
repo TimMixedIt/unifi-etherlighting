@@ -133,6 +133,82 @@ async def test_coordinator_reads_version_and_devices_without_writing(hass) -> No
     assert coordinator.data.write_capability == "ready"
     assert coordinator.data.write_block_reason is None
     assert coordinator.data.missing_confirmed_fields == ()
+    assert coordinator.data.configured_device_count == 1
+    assert coordinator.data.selected_device_count == 1
+    assert coordinator.data.read_contract_compatible_device_count == 1
+    assert coordinator.data.runtime_read_contract_reason == "read_contract_supported"
+    assert coordinator.data.read_contract_mismatch_fields == ()
+    assert devices.write_count == 0
+
+
+async def test_coordinator_reports_bounded_read_contract_failure(hass) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"site": "site_001", "device_ids": ["device_001"]},
+        options={},
+    )
+    devices = FakeDevices()
+    devices.device["ether_lighting"].pop("brightness")
+    devices.device["ether_lighting"]["behavior"] = []
+    devices.device["ether_lighting"]["mode"] = "unexpected"
+    coordinator = EtherlightingDataUpdateCoordinator(
+        hass,
+        entry,
+        FakeController(),
+        devices,
+        FakeService(),  # type: ignore[arg-type]
+        FakeColorSettings(),  # type: ignore[arg-type]
+        FakeService(),  # type: ignore[arg-type]
+    )
+
+    await coordinator.async_refresh()
+
+    assert coordinator.data.controller_status == "unsupported_version_combination"
+    assert coordinator.data.network_api_generation_supported
+    assert coordinator.data.configured_device_count == 1
+    assert coordinator.data.selected_device_count == 1
+    assert coordinator.data.read_contract_compatible_device_count == 0
+    assert (
+        coordinator.data.runtime_read_contract_reason
+        == "selected_devices_read_contract_mismatch"
+    )
+    assert coordinator.data.read_contract_mismatch_fields == (
+        "ether_lighting.brightness",
+        "ether_lighting.behavior",
+        "ether_lighting.mode",
+    )
+    assert devices.write_count == 0
+
+
+async def test_coordinator_reports_selected_device_not_returned(hass) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"site": "site_001", "device_ids": ["different_device"]},
+        options={},
+    )
+    devices = FakeDevices()
+    coordinator = EtherlightingDataUpdateCoordinator(
+        hass,
+        entry,
+        FakeController(),
+        devices,
+        FakeService(),  # type: ignore[arg-type]
+        FakeColorSettings(),  # type: ignore[arg-type]
+        FakeService(),  # type: ignore[arg-type]
+    )
+
+    await coordinator.async_refresh()
+
+    assert coordinator.data.controller_status == "unsupported_version_combination"
+    assert coordinator.data.network_api_generation_supported
+    assert coordinator.data.configured_device_count == 1
+    assert coordinator.data.selected_device_count == 0
+    assert coordinator.data.read_contract_compatible_device_count == 0
+    assert (
+        coordinator.data.runtime_read_contract_reason
+        == "selected_devices_not_returned"
+    )
+    assert coordinator.data.read_contract_mismatch_fields == ()
     assert devices.write_count == 0
 
 

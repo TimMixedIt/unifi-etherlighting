@@ -28,6 +28,7 @@ from .const import (
     CONF_USE_SSL,
     CONF_USERNAME,
     CONF_VERIFY_SSL,
+    DOMAIN,
 )
 from .coordinator import EtherlightingDataUpdateCoordinator
 from .repairs import async_sync_repairs
@@ -115,6 +116,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     await async_sync_repairs(hass, entry, coordinator.data)
+
+    def _sync_repairs_after_successful_refresh() -> None:
+        """Keep Repairs aligned when the live controller contract changes."""
+        if coordinator.last_update_success and coordinator.data is not None:
+            entry.async_create_task(
+                hass,
+                async_sync_repairs(hass, entry, coordinator.data),
+                f"{DOMAIN}_sync_repairs",
+            )
+
+    entry.async_on_unload(
+        coordinator.async_add_listener(_sync_repairs_after_successful_refresh)
+    )
     return True
 
 

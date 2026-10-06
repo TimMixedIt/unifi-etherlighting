@@ -2,6 +2,10 @@ name: Home Assistant validation
 
 on:
   push:
+    branches:
+      - main
+    tags:
+      - "v*"
   pull_request:
   schedule:
     - cron: "43 3 * * 1"

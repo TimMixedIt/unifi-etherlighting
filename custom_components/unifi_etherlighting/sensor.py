@@ -10,8 +10,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import RuntimeData
+from .const import VERSION
 from .coordinator import EtherlightingCoordinatorData
 from .entity import EtherlightingDiagnosticEntity
+from .write_readiness import effective_write_ready, effective_write_readiness
 
 
 def _capability_map(
@@ -71,6 +73,9 @@ class EtherlightingStatusSensor(EtherlightingDiagnosticEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, object]:
         return {
+            # This is sourced from the loaded Python module, so it can reveal a
+            # HACS update that has not yet been applied by a full HA reload.
+            "runtime_integration_version": VERSION,
             **_capability_map(self.coordinator.data),
             "compatibility_profile": self.coordinator.data.compatibility_profile,
             "network_api_generation_supported": (
@@ -78,6 +83,17 @@ class EtherlightingStatusSensor(EtherlightingDiagnosticEntity, SensorEntity):
             ),
             "contract_compatible_device_count": (
                 self.coordinator.data.contract_compatible_device_count
+            ),
+            "configured_device_count": self.coordinator.data.configured_device_count,
+            "selected_device_count": self.coordinator.data.selected_device_count,
+            "read_contract_compatible_device_count": (
+                self.coordinator.data.read_contract_compatible_device_count
+            ),
+            "runtime_read_contract_reason": (
+                self.coordinator.data.runtime_read_contract_reason
+            ),
+            "read_contract_mismatch_fields": list(
+                self.coordinator.data.read_contract_mismatch_fields
             ),
         }
 
@@ -95,7 +111,7 @@ class EtherlightingVersionSensor(EtherlightingDiagnosticEntity, SensorEntity):
 
 
 class EtherlightingWriteCapabilitySensor(EtherlightingDiagnosticEntity, SensorEntity):
-    """Expose the bounded central write-lock state and confirmed controls."""
+    """Expose effective runtime readiness separately from the release-wide gate."""
 
     _attr_translation_key = "brightness_write_capability"
 
@@ -105,13 +121,24 @@ class EtherlightingWriteCapabilitySensor(EtherlightingDiagnosticEntity, SensorEn
 
     @property
     def native_value(self) -> str:
-        return self.coordinator.data.write_capability
+        data = self.coordinator.data
+        return effective_write_readiness(
+            data.write_capability, data.devices, data.colors
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, object]:
-        devices = self.coordinator.data.devices
+        data = self.coordinator.data
+        devices = data.devices
         write_states = {device.brightness_write_supported.value for device in devices}
         return {
+            # ``write_capability`` used to be this sensor's state.  Keep the
+            # release-wide gate visible, but do not present it as a per-device
+            # permission to write.
+            "global_write_capability": data.write_capability,
+            "effective_write_ready": effective_write_ready(
+                data.write_capability, devices, data.colors
+            ),
             "brightness_read_supported": any(
                 device.brightness_read_supported for device in devices
             ),
@@ -151,9 +178,9 @@ class EtherlightingWriteCapabilitySensor(EtherlightingDiagnosticEntity, SensorEn
                 else "unsupported"
             ),
             "mode_write_ready": any(device.mode_write_ready for device in devices),
-            "write_block_reason": self.coordinator.data.write_block_reason,
+            "write_block_reason": data.write_block_reason,
             "missing_confirmed_fields": list(
-                self.coordinator.data.missing_confirmed_fields
+                data.missing_confirmed_fields
             ),
         }
 
