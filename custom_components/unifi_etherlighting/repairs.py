@@ -70,8 +70,16 @@ async def async_sync_repairs(
         hass,
         entry,
         "unsupported_combination",
-        data.controller_status == CONTROLLER_STATUS_UNSUPPORTED,
+        data.controller_status == CONTROLLER_STATUS_UNSUPPORTED
+        and data.runtime_read_contract_reason != "selected_devices_not_returned",
         "unsupported_combination",
+    )
+    _sync_issue(
+        hass,
+        entry,
+        "selected_devices_not_returned",
+        data.runtime_read_contract_reason == "selected_devices_not_returned",
+        "selected_devices_not_returned",
     )
     _sync_issue(
         hass,

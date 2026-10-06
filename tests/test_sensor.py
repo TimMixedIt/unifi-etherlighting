@@ -104,6 +104,8 @@ async def test_diagnostic_sensor_states_are_bounded(hass) -> None:
         "network_api_generation_supported": True,
         "contract_compatible_device_count": 1,
         "configured_device_count": 1,
+        "returned_device_count": 1,
+        "returned_switch_count": 1,
         "selected_device_count": 1,
         "read_contract_compatible_device_count": 1,
         "runtime_read_contract_reason": "read_contract_supported",

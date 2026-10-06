@@ -31,6 +31,7 @@ class FailingAuthController:
 class FakeDevices:
     def __init__(self) -> None:
         self.write_count = 0
+        self.additional_devices: tuple[dict[str, object], ...] = ()
         self.device = json.loads(
             (
                 Path(__file__).parent / "fixtures/device_read_brightness_30.json"
@@ -38,7 +39,7 @@ class FakeDevices:
         )
 
     async def async_read_devices(self, site: str):
-        return (self.device,)
+        return (self.device, *self.additional_devices)
 
     async def async_write_device(self, *args, **kwargs):
         self.write_count += 1
@@ -134,6 +135,8 @@ async def test_coordinator_reads_version_and_devices_without_writing(hass) -> No
     assert coordinator.data.write_block_reason is None
     assert coordinator.data.missing_confirmed_fields == ()
     assert coordinator.data.configured_device_count == 1
+    assert coordinator.data.returned_device_count == 1
+    assert coordinator.data.returned_switch_count == 1
     assert coordinator.data.selected_device_count == 1
     assert coordinator.data.read_contract_compatible_device_count == 1
     assert coordinator.data.runtime_read_contract_reason == "read_contract_supported"
@@ -166,6 +169,8 @@ async def test_coordinator_reports_bounded_read_contract_failure(hass) -> None:
     assert coordinator.data.controller_status == "unsupported_version_combination"
     assert coordinator.data.network_api_generation_supported
     assert coordinator.data.configured_device_count == 1
+    assert coordinator.data.returned_device_count == 1
+    assert coordinator.data.returned_switch_count == 1
     assert coordinator.data.selected_device_count == 1
     assert coordinator.data.read_contract_compatible_device_count == 0
     assert (
@@ -187,6 +192,7 @@ async def test_coordinator_reports_selected_device_not_returned(hass) -> None:
         options={},
     )
     devices = FakeDevices()
+    devices.additional_devices = ({"_id": "ap_001", "type": "uap"},)
     coordinator = EtherlightingDataUpdateCoordinator(
         hass,
         entry,
@@ -199,9 +205,11 @@ async def test_coordinator_reports_selected_device_not_returned(hass) -> None:
 
     await coordinator.async_refresh()
 
-    assert coordinator.data.controller_status == "unsupported_version_combination"
+    assert coordinator.data.controller_status == "selected_devices_not_returned"
     assert coordinator.data.network_api_generation_supported
     assert coordinator.data.configured_device_count == 1
+    assert coordinator.data.returned_device_count == 2
+    assert coordinator.data.returned_switch_count == 1
     assert coordinator.data.selected_device_count == 0
     assert coordinator.data.read_contract_compatible_device_count == 0
     assert (
@@ -209,6 +217,39 @@ async def test_coordinator_reports_selected_device_not_returned(hass) -> None:
         == "selected_devices_not_returned"
     )
     assert coordinator.data.read_contract_mismatch_fields == ()
+    assert devices.write_count == 0
+
+
+async def test_coordinator_reports_partially_missing_selected_devices(hass) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"site": "site_001", "device_ids": ["device_001", "missing_device"]},
+        options={},
+    )
+    devices = FakeDevices()
+    coordinator = EtherlightingDataUpdateCoordinator(
+        hass,
+        entry,
+        FakeController(),
+        devices,
+        FakeService(),  # type: ignore[arg-type]
+        FakeColorSettings(),  # type: ignore[arg-type]
+        FakeService(),  # type: ignore[arg-type]
+    )
+
+    await coordinator.async_refresh()
+
+    # The returned Device remains usable, but Home Assistant must surface the
+    # missing saved identifier instead of silently treating the selection as
+    # fully healthy.
+    assert coordinator.data.controller_status == "online"
+    assert coordinator.data.configured_device_count == 2
+    assert coordinator.data.selected_device_count == 1
+    assert coordinator.data.read_contract_compatible_device_count == 1
+    assert (
+        coordinator.data.runtime_read_contract_reason
+        == "selected_devices_not_returned"
+    )
     assert devices.write_count == 0
 
 
