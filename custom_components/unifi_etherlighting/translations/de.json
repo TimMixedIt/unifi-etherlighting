@@ -21,6 +21,10 @@
           "device_ids": "Kompatible Switches"
         }
       },
+      "reconfigure": {
+        "title": "Ausgewählte Etherlighting-Switches aktualisieren",
+        "description": "Home Assistant liest diesen Controller nur erneut und zeigt aktuell kompatible Switches. Die Auswahl ersetzt die gespeicherte Auswahl und lädt die Integration neu; dabei werden keine Controller-Einstellungen verändert."
+      },
       "reauth_confirm": {
         "title": "UniFi Etherlighting neu verbinden",
         "description": "Home Assistant konnte sich lokal nicht mehr authentifizieren. Gib die aktuellen UniFi-Zugangsdaten ein; dabei werden keine Controller-Einstellungen verändert.",
@@ -54,6 +58,7 @@
     "abort": {
       "already_configured": "Dieser Controller ist bereits eingerichtet.",
       "reauth_successful": "Die Authentifizierung wurde erfolgreich aktualisiert.",
+      "reconfigure_successful": "Die ausgewählten Etherlighting-Switches wurden erfolgreich aktualisiert.",
       "unknown": "Der validierte Verbindungszustand des Einrichtungsablaufs ging verloren."
     }
   },
@@ -119,6 +124,10 @@
     "unsupported_combination": {
       "title": "Etherlighting-API-Vertrag nicht unterstützt",
       "description": "Controller oder Switch liefern nicht mehr das vollständig validierte Etherlighting-Schema."
+    },
+    "selected_devices_not_returned": {
+      "title": "Konfigurierter Etherlighting-Switch wird nicht mehr geliefert",
+      "description": "UniFi liefert einen oder mehrere konfigurierte Etherlighting-Switches nicht mehr zurück. Konfiguriere diese Integration neu und wähle aktuelle kompatible Switches ausdrücklich aus. Es wurden keine Controller-Einstellungen verändert."
     },
     "etherlighting_field_missing": {
       "title": "Etherlighting-Steuerfeld fehlt",

@@ -6,7 +6,7 @@ from datetime import timedelta
 
 DOMAIN = "unifi_etherlighting"
 NAME = "UniFi Etherlighting"
-VERSION = "0.5.5"
+VERSION = "0.5.6"
 
 CONF_HOST = "host"
 CONF_PORT = "port"
@@ -26,6 +26,7 @@ DEFAULT_POLL_INTERVAL_SECONDS = 900
 DEFAULT_UPDATE_INTERVAL = timedelta(seconds=DEFAULT_POLL_INTERVAL_SECONDS)
 CONTROLLER_STATUS_ONLINE = "online"
 CONTROLLER_STATUS_UNSUPPORTED = "unsupported_version_combination"
+CONTROLLER_STATUS_SELECTED_DEVICES_NOT_RETURNED = "selected_devices_not_returned"
 
 BRIGHTNESS_MINIMUM = 1
 BRIGHTNESS_MAXIMUM = 100

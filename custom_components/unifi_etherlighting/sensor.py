@@ -85,6 +85,8 @@ class EtherlightingStatusSensor(EtherlightingDiagnosticEntity, SensorEntity):
                 self.coordinator.data.contract_compatible_device_count
             ),
             "configured_device_count": self.coordinator.data.configured_device_count,
+            "returned_device_count": self.coordinator.data.returned_device_count,
+            "returned_switch_count": self.coordinator.data.returned_switch_count,
             "selected_device_count": self.coordinator.data.selected_device_count,
             "read_contract_compatible_device_count": (
                 self.coordinator.data.read_contract_compatible_device_count

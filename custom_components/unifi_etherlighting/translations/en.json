@@ -21,6 +21,10 @@
           "device_ids": "Compatible switches"
         }
       },
+      "reconfigure": {
+        "title": "Update selected Etherlighting switches",
+        "description": "Home Assistant will only reread this controller and show currently compatible switches. Selecting switches replaces the saved selection and reloads the integration; no controller setting will be changed."
+      },
       "reauth_confirm": {
         "title": "Reconnect UniFi Etherlighting",
         "description": "Home Assistant could no longer authenticate locally. Enter the current UniFi credentials; no controller setting will be changed.",
@@ -54,6 +58,7 @@
     "abort": {
       "already_configured": "This controller is already configured.",
       "reauth_successful": "Authentication was updated successfully.",
+      "reconfigure_successful": "The selected Etherlighting switches were updated successfully.",
       "unknown": "The setup flow lost its validated connection state."
     }
   },
@@ -119,6 +124,10 @@
     "unsupported_combination": {
       "title": "Etherlighting API contract not supported",
       "description": "The detected controller or switch no longer exposes the complete validated Etherlighting schema."
+    },
+    "selected_devices_not_returned": {
+      "title": "Configured Etherlighting switch is no longer returned",
+      "description": "UniFi no longer returns one or more configured Etherlighting switches. Reconfigure this integration and explicitly select currently compatible switches. No controller setting was changed."
     },
     "etherlighting_field_missing": {
       "title": "Etherlighting control field missing",

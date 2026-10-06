@@ -10,6 +10,8 @@ def test_diagnostics_allowlist_removes_credentials_hosts_and_ids() -> None:
             "network_api_generation_supported": True,
             "contract_compatible_device_count": 1,
             "configured_device_count": 1,
+            "returned_device_count": 2,
+            "returned_switch_count": 1,
             "selected_device_count": 1,
             "read_contract_compatible_device_count": 0,
             "runtime_read_contract_reason": "selected_devices_read_contract_mismatch",
@@ -55,6 +57,8 @@ def test_diagnostics_allowlist_removes_credentials_hosts_and_ids() -> None:
     assert result["network_api_generation_supported"] is True
     assert result["contract_compatible_device_count"] == 1
     assert result["configured_device_count"] == 1
+    assert result["returned_device_count"] == 2
+    assert result["returned_switch_count"] == 1
     assert result["selected_device_count"] == 1
     assert result["read_contract_compatible_device_count"] == 0
     assert (

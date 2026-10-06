@@ -330,11 +330,71 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders=placeholders,
         )
 
-    async def async_step_devices(
+    async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        if self._pending_data is None or not self._compatible_devices:
-            return self.async_abort(reason="unknown")
+        """Safely refresh the controller's current compatible switch choices."""
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+        placeholders: dict[str, str] | None = None
+
+        if user_input is not None:
+            try:
+                compatible = await self._async_validate_connection(dict(entry.data))
+            except ValidationStageError as err:
+                category = _error_key_for_stage(err)
+                _log_stage_failure(err, category)
+                if category == "no_compatible_devices" and self._contract_details:
+                    category = "no_compatible_devices_detail"
+                    placeholders = {"details": self._contract_details}
+                errors["base"] = category
+            except vol.Invalid as err:
+                reason = str(err)
+                errors["base"] = (
+                    reason
+                    if reason
+                    in {
+                        "unsupported_network_version",
+                        "no_devices",
+                        "no_compatible_devices",
+                    }
+                    else "unknown"
+                )
+            except UniFiAuthenticationError:
+                errors["base"] = "invalid_auth"
+            except UniFiPermissionError:
+                errors["base"] = "insufficient_permissions"
+            except UniFiTransportError as err:
+                if err.reason is TransportFailureReason.TLS:
+                    errors["base"] = "invalid_ssl"
+                elif err.reason is TransportFailureReason.TIMEOUT:
+                    errors["base"] = "timeout"
+                else:
+                    errors["base"] = "cannot_connect"
+            except UniFiSchemaError:
+                errors["base"] = "unknown"
+            except UniFiResponseError as err:
+                errors["base"] = (
+                    "site_not_found" if "HTTP 404" in str(err) else "unknown"
+                )
+            except TimeoutError:
+                errors["base"] = "timeout"
+            except Exception:
+                errors["base"] = "unknown"
+            else:
+                self._pending_data = dict(entry.data)
+                self._compatible_devices = compatible
+                return await self.async_step_devices()
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema({}),
+            errors=errors,
+            description_placeholders=placeholders,
+        )
+
+    def _device_selection_schema(self) -> tuple[vol.Schema, set[str]]:
+        """Build the selector from the current read-only compatibility result."""
         choices = [
             selector.SelectOptionDict(
                 value=str(device["_id"]),
@@ -354,13 +414,20 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
             }
         )
+        return schema, {option["value"] for option in choices}
+
+    async def async_step_devices(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        if self._pending_data is None or not self._compatible_devices:
+            return self.async_abort(reason="unknown")
+        schema, allowed = self._device_selection_schema()
         if user_input is None:
             return self.async_show_form(step_id="devices", data_schema=schema)
 
         selected = user_input.get(CONF_DEVICE_IDS)
         if isinstance(selected, str):
             selected = [selected]
-        allowed = {option["value"] for option in choices}
         if (
             not isinstance(selected, list)
             or not selected
@@ -370,6 +437,39 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 step_id="devices",
                 data_schema=schema,
                 errors={"base": "no_compatible_devices"},
+            )
+
+        if self.source == config_entries.SOURCE_RECONFIGURE:
+            entry = self._get_reconfigure_entry()
+            try:
+                live_compatible = await self._async_validate_connection(dict(entry.data))
+            except ValidationStageError as err:
+                category = _error_key_for_stage(err)
+                _log_stage_failure(err, category)
+                return self.async_show_form(
+                    step_id="devices",
+                    data_schema=schema,
+                    errors={"base": category},
+                )
+            except Exception:
+                return self.async_show_form(
+                    step_id="devices",
+                    data_schema=schema,
+                    errors={"base": "unknown"},
+                )
+
+            self._compatible_devices = live_compatible
+            live_schema, live_allowed = self._device_selection_schema()
+            if not set(selected) <= live_allowed:
+                return self.async_show_form(
+                    step_id="devices",
+                    data_schema=live_schema,
+                    errors={"base": "no_compatible_devices"},
+                )
+
+            return self.async_update_reload_and_abort(
+                entry,
+                data_updates={CONF_DEVICE_IDS: list(selected)},
             )
 
         data = {**self._pending_data, CONF_DEVICE_IDS: list(selected)}

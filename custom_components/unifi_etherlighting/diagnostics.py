@@ -23,6 +23,8 @@ _ALLOWED_KEYS = frozenset(
         "network_api_generation_supported",
         "contract_compatible_device_count",
         "configured_device_count",
+        "returned_device_count",
+        "returned_switch_count",
         "selected_device_count",
         "read_contract_compatible_device_count",
         "runtime_read_contract_reason",
@@ -145,6 +147,8 @@ async def async_get_config_entry_diagnostics(
         "network_api_generation_supported": data.network_api_generation_supported,
         "contract_compatible_device_count": data.contract_compatible_device_count,
         "configured_device_count": data.configured_device_count,
+        "returned_device_count": data.returned_device_count,
+        "returned_switch_count": data.returned_switch_count,
         "selected_device_count": data.selected_device_count,
         "read_contract_compatible_device_count": (
             data.read_contract_compatible_device_count

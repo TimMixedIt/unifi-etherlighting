@@ -117,6 +117,71 @@ async def test_repairs_are_idempotent_and_old_read_issue_is_removed(hass) -> Non
     )
 
 
+async def test_selected_devices_not_returned_uses_a_distinct_repair(hass) -> None:
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={})
+    base = EtherlightingCoordinatorData(
+        controller_status="unsupported_version_combination",
+        controller_type="unifi_os",
+        network_application_version="11.0.81",
+        devices=(),
+        colors=(),
+        capabilities=current_capture_capabilities(),
+        last_successful_update=None,
+        last_verified_write=None,
+        last_error=None,
+        write_capability="ready",
+        write_block_reason=None,
+        missing_confirmed_fields=(),
+    )
+    registry = ir.async_get(hass)
+
+    await async_sync_repairs(hass, entry, base)
+    assert (
+        registry.async_get_issue(DOMAIN, f"{entry.entry_id}_unsupported_combination")
+        is not None
+    )
+
+    stale_selection = replace(
+        base,
+        controller_status="online",
+        configured_device_count=2,
+        returned_device_count=2,
+        returned_switch_count=1,
+        selected_device_count=1,
+        read_contract_compatible_device_count=1,
+        runtime_read_contract_reason="selected_devices_not_returned",
+    )
+    await async_sync_repairs(hass, entry, stale_selection)
+
+    assert (
+        registry.async_get_issue(DOMAIN, f"{entry.entry_id}_unsupported_combination")
+        is None
+    )
+    issue = registry.async_get_issue(
+        DOMAIN, f"{entry.entry_id}_selected_devices_not_returned"
+    )
+    assert issue is not None
+    assert issue.translation_key == "selected_devices_not_returned"
+    assert issue.translation_placeholders is None
+
+    await async_sync_repairs(
+        hass,
+        entry,
+        replace(
+            stale_selection,
+            controller_status="online",
+            selected_device_count=1,
+            runtime_read_contract_reason="read_contract_supported",
+        ),
+    )
+    assert (
+        registry.async_get_issue(
+            DOMAIN, f"{entry.entry_id}_selected_devices_not_returned"
+        )
+        is None
+    )
+
+
 async def test_write_repairs_track_only_indeterminate_results(hass) -> None:
     entry = MockConfigEntry(domain=DOMAIN, data={}, options={})
     base = EtherlightingCoordinatorData(

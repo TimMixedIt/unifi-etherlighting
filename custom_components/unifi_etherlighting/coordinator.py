@@ -41,6 +41,7 @@ from .const import (
     CONF_POLL_INTERVAL,
     CONF_SITE,
     CONTROLLER_STATUS_ONLINE,
+    CONTROLLER_STATUS_SELECTED_DEVICES_NOT_RETURNED,
     CONTROLLER_STATUS_UNSUPPORTED,
     DEFAULT_POLL_INTERVAL_SECONDS,
     DOMAIN,
@@ -106,6 +107,8 @@ class EtherlightingCoordinatorData:
     network_api_generation_supported: bool = False
     contract_compatible_device_count: int = 0
     configured_device_count: int = 0
+    returned_device_count: int = 0
+    returned_switch_count: int = 0
     selected_device_count: int = 0
     read_contract_compatible_device_count: int = 0
     runtime_read_contract_reason: str = "unknown"
@@ -276,21 +279,35 @@ class EtherlightingDataUpdateCoordinator(
             or device.mode_read_supported
             for device in diagnostic_devices
         )
-        status = (
-            CONTROLLER_STATUS_ONLINE
-            if read_contract_compatible_device_count
-            else CONTROLLER_STATUS_UNSUPPORTED
+        returned_ids = {
+            device.get("_id")
+            for device in all_devices
+            if isinstance(device.get("_id"), str)
+        }
+        selected_devices_not_returned = any(
+            not isinstance(device_id, str) or device_id not in returned_ids
+            for device_id in selected_ids
         )
         if not network_version_is_supported(network_version):
             runtime_read_contract_reason = "unsupported_network_api_generation"
         elif not selected_ids:
             runtime_read_contract_reason = "no_configured_devices"
-        elif not selected:
+        elif selected_devices_not_returned:
             runtime_read_contract_reason = "selected_devices_not_returned"
         elif not read_contract_compatible_device_count:
             runtime_read_contract_reason = "selected_devices_read_contract_mismatch"
         else:
             runtime_read_contract_reason = "read_contract_supported"
+        if read_contract_compatible_device_count:
+            status = CONTROLLER_STATUS_ONLINE
+        elif runtime_read_contract_reason == "selected_devices_not_returned":
+            # None of the selected Devices provides a usable read contract and
+            # at least one saved identifier is no longer in the current read
+            # response. This is distinct from a Network-version or Device-
+            # schema incompatibility and must not imply either one.
+            status = CONTROLLER_STATUS_SELECTED_DEVICES_NOT_RETURNED
+        else:
+            status = CONTROLLER_STATUS_UNSUPPORTED
         read_contract_mismatch_fields = tuple(
             dict.fromkeys(
                 label
@@ -333,6 +350,10 @@ class EtherlightingDataUpdateCoordinator(
                 for device in selected
             ),
             configured_device_count=len(selected_ids),
+            returned_device_count=len(all_devices),
+            returned_switch_count=sum(
+                device.get("type") == "usw" for device in all_devices
+            ),
             selected_device_count=len(selected),
             read_contract_compatible_device_count=read_contract_compatible_device_count,
             runtime_read_contract_reason=runtime_read_contract_reason,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 import json
 import logging
 from pathlib import Path
@@ -180,6 +181,154 @@ async def test_reauth_rejects_bad_credentials_without_updating_entry(hass) -> No
 
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_auth"}
+    assert entry.data == original
+
+
+async def test_reconfigure_refreshes_devices_and_updates_only_device_ids(hass) -> None:
+    entry = MockConfigEntry(
+        version=2,
+        minor_version=1,
+        domain=DOMAIN,
+        title="UniFi Etherlighting",
+        data={
+            **CONNECTION,
+            "device_ids": ["stale_device_id"],
+        },
+        source=config_entries.SOURCE_USER,
+        options={},
+        unique_id="controller.invalid:443",
+    )
+    entry.add_to_hass(hass)
+    original = dict(entry.data)
+
+    with patch(
+        "custom_components.unifi_etherlighting.config_flow.ConfigFlow._async_validate_connection",
+        new=AsyncMock(side_effect=[(DEVICE,), (DEVICE,)]),
+    ) as validate:
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={
+                "source": config_entries.SOURCE_RECONFIGURE,
+                "entry_id": entry.entry_id,
+            },
+            data=None,
+        )
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "reconfigure"
+        validate.assert_not_awaited()
+
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "devices"
+        assert validate.await_count == 1
+
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"device_ids": ["device_001"]}
+        )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert validate.await_count == 2
+    assert entry.data == {**original, "device_ids": ["device_001"]}
+
+
+async def test_reconfigure_rejects_devices_that_changed_since_confirmation(hass) -> None:
+    entry = MockConfigEntry(
+        version=2,
+        minor_version=1,
+        domain=DOMAIN,
+        title="UniFi Etherlighting",
+        data={
+            **CONNECTION,
+            "device_ids": ["stale_device_id"],
+        },
+        source=config_entries.SOURCE_USER,
+        options={},
+        unique_id="controller.invalid:443",
+    )
+    entry.add_to_hass(hass)
+    original = dict(entry.data)
+    replacement = deepcopy(DEVICE)
+    replacement["_id"] = "device_002"
+
+    with patch(
+        "custom_components.unifi_etherlighting.config_flow.ConfigFlow._async_validate_connection",
+        new=AsyncMock(side_effect=[(DEVICE,), (replacement,)]),
+    ) as validate:
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={
+                "source": config_entries.SOURCE_RECONFIGURE,
+                "entry_id": entry.entry_id,
+            },
+            data=None,
+        )
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+        assert result["step_id"] == "devices"
+
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"device_ids": ["device_001"]}
+        )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "devices"
+    assert result["errors"] == {"base": "no_compatible_devices"}
+    selector_value = next(iter(result["data_schema"].schema.values()))
+    assert {
+        option["value"] for option in selector_value.config["options"]
+    } == {"device_002"}
+    assert validate.await_count == 2
+    assert entry.data == original
+
+
+async def test_reconfigure_validation_failure_never_updates_device_ids(hass) -> None:
+    entry = MockConfigEntry(
+        version=2,
+        minor_version=1,
+        domain=DOMAIN,
+        title="UniFi Etherlighting",
+        data={
+            **CONNECTION,
+            "device_ids": ["stale_device_id"],
+        },
+        source=config_entries.SOURCE_USER,
+        options={},
+        unique_id="controller.invalid:443",
+    )
+    entry.add_to_hass(hass)
+    original = dict(entry.data)
+
+    with patch(
+        "custom_components.unifi_etherlighting.config_flow.ConfigFlow._async_validate_connection",
+        new=AsyncMock(
+            side_effect=[
+                (DEVICE,),
+                ValidationStageError(
+                    ValidationStage.DEVICE_READ,
+                    UniFiResponseError("HTTP 404 synthetic response"),
+                ),
+            ]
+        ),
+    ) as validate:
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={
+                "source": config_entries.SOURCE_RECONFIGURE,
+                "entry_id": entry.entry_id,
+            },
+            data=None,
+        )
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+        assert result["step_id"] == "devices"
+
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"device_ids": ["device_001"]}
+        )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "devices"
+    assert result["errors"] == {"base": "site_not_found"}
+    assert validate.await_count == 2
     assert entry.data == original
 
 

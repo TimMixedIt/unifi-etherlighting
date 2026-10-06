@@ -75,6 +75,11 @@ TLS certificate verification.
 If credentials later expire or change, Home Assistant starts a reauthentication
 flow instead of requiring the integration to be removed and recreated.
 
+If UniFi no longer returns a previously selected switch, use **Reconfigure** on
+the integration. Home Assistant rereads the controller and requires an explicit
+selection from the currently compatible switches; it never automatically
+substitutes another switch or changes a controller setting during this flow.
+
 ## Compatibility
 
 Live validation currently covers:
