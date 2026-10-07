@@ -137,6 +137,10 @@
       "title": "Etherlighting-Steuerfeld fehlt",
       "description": "Der ausgewählte Switch liefert die bestätigten Etherlighting-Steuerfelder nicht mehr."
     },
+    "color_metadata_unavailable": {
+      "title": "Etherlighting-Farbmetadaten nicht verfügbar",
+      "description": "UniFi konnte optionale Etherlighting-Farbmetadaten nicht aktualisieren. Helligkeit, Modus und Breathing-Steuerung des Switches bleiben verfügbar, sofern ihre Gerätedaten aktuell sind. Farbsteuerungen bleiben bis zu einer späteren erfolgreichen Aktualisierung nicht verfügbar. Es wurden keine Controller-Einstellungen verändert."
+    },
     "write_unverified": {
       "title": "Etherlighting-Schreibzugriff nicht verifiziert",
       "description": "Der Controllerzustand lieferte keine sichere Read-after-Write-Bestätigung."

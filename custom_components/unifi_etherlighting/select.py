@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import RuntimeData
 from .brightness import BrightnessWriteOutcome
 from .const import (
+    CONF_DEVICE_IDS,
     CONF_SITE,
     DOMAIN,
     WRITE_CAPABILITY_ENABLED,
@@ -28,9 +29,12 @@ async def async_setup_entry(
 ) -> None:
     runtime: RuntimeData = entry.runtime_data
     async_add_entities(
-        EtherlightingModeSelect(runtime, entry, device.identifier)
-        for device in runtime.coordinator.data.devices
-        if device.mode_read_supported
+        EtherlightingModeSelect(runtime, entry, device_id)
+        for device_id in dict.fromkeys(
+            device_id
+            for device_id in entry.data.get(CONF_DEVICE_IDS, ())
+            if isinstance(device_id, str)
+        )
     )
 
 

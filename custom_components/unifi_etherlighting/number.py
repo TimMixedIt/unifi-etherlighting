@@ -18,6 +18,7 @@ from .const import (
     BRIGHTNESS_MINIMUM,
     BRIGHTNESS_STEP,
     BRIGHTNESS_UNIT,
+    CONF_DEVICE_IDS,
     CONF_SITE,
     DOMAIN,
     MISSING_CONFIRMED_WRITE_FIELDS,
@@ -34,9 +35,12 @@ async def async_setup_entry(
 ) -> None:
     runtime: RuntimeData = entry.runtime_data
     async_add_entities(
-        EtherlightingBrightnessNumber(runtime, entry, device.identifier)
-        for device in runtime.coordinator.data.devices
-        if device.brightness_read_supported
+        EtherlightingBrightnessNumber(runtime, entry, device_id)
+        for device_id in dict.fromkeys(
+            device_id
+            for device_id in entry.data.get(CONF_DEVICE_IDS, ())
+            if isinstance(device_id, str)
+        )
     )
 
 

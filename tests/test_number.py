@@ -119,9 +119,14 @@ async def test_read_only_number_never_calls_brightness_service() -> None:
     entity.coordinator.async_request_refresh.assert_not_awaited()
 
 
-async def test_candidate_device_creates_no_number(hass) -> None:
-    entry = MockConfigEntry(domain=DOMAIN, data={}, options={})
+async def test_candidate_device_creates_unavailable_number_for_configured_id(hass) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"device_ids": ["device_001"]},
+        options={},
+    )
     entry.runtime_data = SimpleNamespace(
+        controller_unique_id="controller_001",
         coordinator=SimpleNamespace(
             data=SimpleNamespace(
                 devices=(
@@ -149,4 +154,5 @@ async def test_candidate_device_creates_no_number(hass) -> None:
     )
     added = []
     await async_setup_entry(hass, entry, lambda entities: added.extend(entities))
-    assert added == []
+    assert len(added) == 1
+    assert added[0]._device_id == "device_001"

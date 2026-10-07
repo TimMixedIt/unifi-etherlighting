@@ -20,6 +20,10 @@ def test_diagnostics_allowlist_removes_credentials_hosts_and_ids() -> None:
                 "raw-controller-value",
             ],
             "runtime_integration_version": "0.5.4",
+            "coordinator_last_update_success": False,
+            "coordinator_refresh_error": "schema",
+            "color_metadata_status": "unavailable",
+            "color_metadata_error": "schema",
             "write_capability": "ready",
             "global_write_capability": "ready",
             "effective_write_readiness": "ready",
@@ -41,6 +45,8 @@ def test_diagnostics_allowlist_removes_credentials_hosts_and_ids() -> None:
             "cookie": "cookie",
             "csrf_token": "token",
             "device_id": "device_001",
+            "untrusted_refresh_error": "controller.example/secret",
+            "untrusted_color_status": "controller.example/secret",
             "options": {"verify_ssl": True, "host": "controller.invalid"},
             "capabilities": [
                 {
@@ -69,6 +75,10 @@ def test_diagnostics_allowlist_removes_credentials_hosts_and_ids() -> None:
         "ether_lighting.brightness"
     ]
     assert result["runtime_integration_version"] == "0.5.4"
+    assert result["coordinator_last_update_success"] is False
+    assert result["coordinator_refresh_error"] == "schema"
+    assert result["color_metadata_status"] == "unavailable"
+    assert result["color_metadata_error"] == "schema"
     assert result["write_capability"] == "ready"
     assert result["global_write_capability"] == "ready"
     assert result["effective_write_readiness"] == "ready"
@@ -90,3 +100,5 @@ def test_diagnostics_allowlist_removes_credentials_hosts_and_ids() -> None:
     ]
     assert "host" not in result
     assert "password" not in result
+    assert "untrusted_refresh_error" not in result
+    assert "untrusted_color_status" not in result

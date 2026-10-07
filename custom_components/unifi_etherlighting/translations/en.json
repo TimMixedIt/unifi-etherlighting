@@ -137,6 +137,10 @@
       "title": "Etherlighting control field missing",
       "description": "The selected switch no longer exposes the confirmed Etherlighting control fields."
     },
+    "color_metadata_unavailable": {
+      "title": "Etherlighting color metadata unavailable",
+      "description": "UniFi could not refresh optional Etherlighting color metadata. Switch brightness, mode, and breathing controls remain available when their device data is current. Color controls stay unavailable until a later successful refresh. No controller setting was changed."
+    },
     "write_unverified": {
       "title": "Etherlighting write could not be verified",
       "description": "The controller state did not provide a safe Read-after-Write confirmation."

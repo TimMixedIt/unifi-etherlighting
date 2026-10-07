@@ -223,6 +223,48 @@ async def test_read_only_device_creates_and_clears_write_contract_repair(hass) -
     )
 
 
+async def test_color_metadata_repair_tracks_optional_read_failures(hass) -> None:
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={})
+    base = EtherlightingCoordinatorData(
+        controller_status="online",
+        controller_type="unifi_os",
+        network_application_version="11.0.81",
+        devices=(),
+        colors=(),
+        capabilities=current_capture_capabilities(),
+        last_successful_update=None,
+        last_verified_write=None,
+        last_error=None,
+        write_capability="ready",
+        write_block_reason=None,
+        missing_confirmed_fields=(),
+    )
+    registry = ir.async_get(hass)
+
+    await async_sync_repairs(
+        hass,
+        entry,
+        replace(
+            base,
+            color_metadata_status="unavailable",
+            color_metadata_error="schema",
+        ),
+    )
+    issue = registry.async_get_issue(
+        DOMAIN, f"{entry.entry_id}_color_metadata_unavailable"
+    )
+    assert issue is not None
+    assert issue.translation_key == "color_metadata_unavailable"
+
+    await async_sync_repairs(hass, entry, replace(base, color_metadata_status="ready"))
+    assert (
+        registry.async_get_issue(
+            DOMAIN, f"{entry.entry_id}_color_metadata_unavailable"
+        )
+        is None
+    )
+
+
 async def test_write_repairs_track_only_indeterminate_results(hass) -> None:
     entry = MockConfigEntry(domain=DOMAIN, data={}, options={})
     base = EtherlightingCoordinatorData(
