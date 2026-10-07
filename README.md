@@ -25,13 +25,16 @@ gates:
 1. The Network Application must report version 10.5.62 or newer. There is no
    upper version limit: newer majors (for example Network 11) are accepted as
    long as gate 2 still passes.
-2. Every selected switch must expose the complete validated Etherlighting read
-   and write schema at runtime.
+2. Every selected switch must expose the bounded Etherlighting read schema
+   (`brightness`, `behavior` and `mode`) at runtime. The complete Device write
+   schema is checked separately before controls or colors can write.
 
 Network updates, including a new major, therefore keep working when the live
-API contract is unchanged. A changed/missing schema or a Network version below
-10.5.62 fails closed: values may remain diagnostic, writes are disabled and a
-Home Assistant Repair explains the safe reason.
+API contract is unchanged. A changed/missing read schema or a Network version
+below 10.5.62 fails closed. If only a write-only companion field changed, the
+switch can instead be selected as **read-only**: its three current values stay
+visible, while Etherlighting and color writes are disabled and Home Assistant
+creates a Repair explaining why.
 
 The schema check, the pre-write re-read and the post-write read-back are what
 protect your controller; the version number alone is only a lower bound.
@@ -41,7 +44,7 @@ protect your controller; the version number alone is only a lower bound.
 Before every Device write the integration:
 
 1. Re-reads the Network version and complete Device object.
-2. Validates the current runtime contract.
+2. Validates the current complete Device write contract.
 3. Builds the full UI-observed payload from the current Device state.
 4. Changes exactly one allowlisted Etherlighting value.
 5. Sends the request exactly once.
@@ -79,6 +82,10 @@ If UniFi no longer returns a previously selected switch, use **Reconfigure** on
 the integration. Home Assistant rereads the controller and requires an explicit
 selection from the currently compatible switches; it never automatically
 substitutes another switch or changes a controller setting during this flow.
+Switches labelled **read-only** have a valid state contract but an incomplete
+Device write contract. They can be selected for monitoring; control and color
+writes remain unavailable until a verified UniFi UI capture confirms the new
+write shape.
 
 ## Compatibility
 
@@ -91,7 +98,9 @@ Live validation currently covers:
 
 The table records environments that received a reversible live test. It is not
 an exact allowlist. Other Network releases and Etherlighting switches are
-accepted only when the complete runtime contract passes.
+accepted for state monitoring when the bounded read contract passes. Controls
+and colors become writable only when the complete runtime write contract also
+passes.
 
 Not supported:
 

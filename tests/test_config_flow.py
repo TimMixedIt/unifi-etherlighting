@@ -41,6 +41,8 @@ CONNECTION = {
     "site": "site_001",
 }
 DEVICE = json.loads((FIXTURES / "device_read_brightness_30.json").read_text())
+READ_ONLY_DEVICE = deepcopy(DEVICE)
+READ_ONLY_DEVICE["ether_lighting"].pop("led_mode")
 
 
 async def _start_validated_flow(hass):
@@ -71,6 +73,27 @@ async def test_user_flow_validates_and_selects_device(hass) -> None:
     assert result["data"]["site"] == "site_001"
     assert result["data"]["device_ids"] == ["device_001"]
     assert "secret" not in result["title"]
+
+
+async def test_user_flow_offers_read_only_switch_for_state_monitoring(hass) -> None:
+    with patch(
+        "custom_components.unifi_etherlighting.config_flow.ConfigFlow._async_validate_connection",
+        new=AsyncMock(return_value=(READ_ONLY_DEVICE,)),
+    ):
+        result = await _start_validated_flow(hass)
+        selector_value = next(iter(result["data_schema"].schema.values()))
+        assert selector_value.config["options"] == [
+            {
+                "value": "device_001",
+                "label": "USWED72 / 7.4.1.16850 — read-only",
+            }
+        ]
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"device_ids": ["device_001"]}
+        )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"]["device_ids"] == ["device_001"]
 
 
 async def test_duplicate_controller_is_aborted(hass) -> None:
@@ -203,7 +226,7 @@ async def test_reconfigure_refreshes_devices_and_updates_only_device_ids(hass) -
 
     with patch(
         "custom_components.unifi_etherlighting.config_flow.ConfigFlow._async_validate_connection",
-        new=AsyncMock(side_effect=[(DEVICE,), (DEVICE,)]),
+        new=AsyncMock(side_effect=[(READ_ONLY_DEVICE,), (READ_ONLY_DEVICE,)]),
     ) as validate:
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
@@ -221,6 +244,8 @@ async def test_reconfigure_refreshes_devices_and_updates_only_device_ids(hass) -
         assert result["type"] is FlowResultType.FORM
         assert result["step_id"] == "devices"
         assert validate.await_count == 1
+        selector_value = next(iter(result["data_schema"].schema.values()))
+        assert selector_value.config["options"][0]["label"].endswith(" — read-only")
 
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"device_ids": ["device_001"]}
@@ -415,6 +440,47 @@ async def test_successful_validation_is_not_masked_by_logout_failure(
     assert "sensitive diagnostic marker" not in caplog.text
 
 
+async def test_validation_accepts_read_only_v11_switch_without_writing(hass) -> None:
+    auth = MagicMock()
+    auth.authenticated = True
+    auth.async_login = AsyncMock()
+    auth.async_logout = AsyncMock()
+    auth.async_get_csrf_token = AsyncMock(return_value=None)
+    controller = MagicMock()
+    controller.async_read_network_application_version = AsyncMock(
+        return_value="11.0.81"
+    )
+    devices = MagicMock()
+    devices.async_read_devices = AsyncMock(return_value=[READ_ONLY_DEVICE])
+    devices.async_write_device = AsyncMock()
+
+    with (
+        patch(
+            "custom_components.unifi_etherlighting.config_flow.async_create_clientsession"
+        ),
+        patch(
+            "custom_components.unifi_etherlighting.config_flow.UniFiAuthSession",
+            return_value=auth,
+        ),
+        patch("custom_components.unifi_etherlighting.config_flow.UniFiApiClient"),
+        patch(
+            "custom_components.unifi_etherlighting.config_flow.UniFiOsControllerAdapter",
+            return_value=controller,
+        ),
+        patch(
+            "custom_components.unifi_etherlighting.config_flow.UniFiOsDeviceAdapter",
+            return_value=devices,
+        ),
+    ):
+        flow = ConfigFlow()
+        flow.hass = hass
+        compatible = await flow._async_validate_connection(CONNECTION)
+
+    assert compatible == (READ_ONLY_DEVICE,)
+    devices.async_read_devices.assert_awaited_once_with("site_001")
+    devices.async_write_device.assert_not_awaited()
+
+
 async def test_failed_version_read_stops_before_device_read_or_write(hass) -> None:
     auth = MagicMock()
     auth.authenticated = True
@@ -524,7 +590,7 @@ async def test_unexpected_validation_error_preserves_stage(hass, stage) -> None:
             return_value=devices,
         ),
         patch(
-            "custom_components.unifi_etherlighting.config_flow.runtime_contract_is_supported",
+            "custom_components.unifi_etherlighting.config_flow.device_read_contract_is_supported",
             compatibility,
         ),
     ):
@@ -698,8 +764,8 @@ async def test_incompatible_switch_reports_failed_checks_without_values(
     sparse = json.loads(json.dumps(DEVICE))
     sparse["model"] = "USPXG10"
     sparse["name"] = "secret-switch-name"
-    sparse.pop("lcm_orientation_override")
-    sparse["config_network"].pop("gateway")
+    sparse["ether_lighting"].pop("brightness")
+    sparse["ether_lighting"]["mode"] = "unexpected"
     unrelated_ap = {"type": "uap", "model": "U7PRO", "_id": "ap_001"}
     auth = MagicMock()
     auth.authenticated = True
@@ -720,23 +786,23 @@ async def test_incompatible_switch_reports_failed_checks_without_values(
     assert result["step_id"] == "user"
     assert result["errors"] == {"base": "no_compatible_devices_detail"}
     assert result["description_placeholders"] == {
-        "details": "USPXG10: config_network.gateway, lcm_orientation_override"
+        "details": "USPXG10: ether_lighting.brightness, ether_lighting.mode"
     }
-    assert "config_network.gateway" in caplog.text
+    assert "ether_lighting.brightness" in caplog.text
     assert "secret-switch-name" not in caplog.text
     assert "U7PRO" not in caplog.text
 
 
 def test_mismatch_summary_sanitizes_models_and_bounds_output() -> None:
     from custom_components.unifi_etherlighting.config_flow import (
-        _contract_mismatch_summary,
+        _read_contract_mismatch_summary,
     )
 
-    assert _contract_mismatch_summary(()) == "no_switch_returned"
-    assert _contract_mismatch_summary(({"type": "uap"},)) == "no_switch_returned"
+    assert _read_contract_mismatch_summary(()) == "no_switch_returned"
+    assert _read_contract_mismatch_summary(({"type": "uap"},)) == "no_switch_returned"
     odd = {"type": "usw", "model": "bad model!\n{x}"}
-    assert _contract_mismatch_summary((odd,)).startswith("switch: ")
+    assert _read_contract_mismatch_summary((odd,)).startswith("switch: ")
     many = tuple({"type": "usw", "model": f"M{i}"} for i in range(6))
-    summary = _contract_mismatch_summary(many)
+    summary = _read_contract_mismatch_summary(many)
     assert summary.count("M") == 4
     assert summary.endswith("+2 more")

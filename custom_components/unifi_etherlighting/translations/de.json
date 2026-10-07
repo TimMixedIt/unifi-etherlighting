@@ -16,7 +16,7 @@
       },
       "devices": {
         "title": "Etherlighting-Switches auswählen",
-        "description": "Nur Switches mit unterstützter Network-API-Generation und vollständig passendem Etherlighting-Live-Schema stehen zur Auswahl.",
+        "description": "Switches mit vollständig passendem Etherlighting-Live-Schema haben verifizierte Steuerungen. Ein als read-only markierter Switch kann zur Zustandsüberwachung ausgewählt werden, löst aber keine Etherlighting- oder Farbschreibzugriffe aus.",
         "data": {
           "device_ids": "Kompatible Switches"
         }
@@ -48,8 +48,8 @@
       "timeout": "Zeitüberschreitung beim Controller.",
       "site_not_found": "Die UniFi Site konnte nicht gelesen werden.",
       "no_devices": "Für diese UniFi Site wurden keine Geräte geliefert.",
-      "no_compatible_devices": "Kein Switch liefert den vollständigen unterstützten Etherlighting-API-Vertrag.",
-      "no_compatible_devices_detail": "Kein Switch liefert den vollständigen unterstützten Etherlighting-API-Vertrag. Fehlgeschlagene Prüfungen je Switch: {details}. Bitte diese Zeile in einem GitHub-Issue angeben.",
+      "no_compatible_devices": "Kein Switch liefert den unterstützten Etherlighting-Lesevertrag.",
+      "no_compatible_devices_detail": "Kein Switch liefert den unterstützten Etherlighting-Lesevertrag. Fehlgeschlagene Prüfungen je Switch: {details}. Bitte diese Zeile in einem GitHub-Issue angeben.",
       "unsupported_network_version": "Diese Network-Application verwendet eine nicht unterstützte API-Generation.",
       "unsupported_firmware": "Die erkannte Switch-Firmware ist nicht für Etherlighting-Schreibzugriffe bestätigt.",
       "unknown": "Ein unerwarteter Fehler ist aufgetreten.",
@@ -124,6 +124,10 @@
     "unsupported_combination": {
       "title": "Etherlighting-API-Vertrag nicht unterstützt",
       "description": "Controller oder Switch liefern nicht mehr das vollständig validierte Etherlighting-Schema."
+    },
+    "write_contract_incomplete": {
+      "title": "Etherlighting-Schreibzugriffe für einen ausgewählten Switch deaktiviert",
+      "description": "Ein oder mehrere ausgewählte Switches liefern lesbaren Etherlighting-Zustand, aber nicht den vollständig verifizierten Device-Schreibvertrag. Etherlighting-Schreibzugriffe bleiben für diese Switches deaktiviert. Farbschreibzugriffe benötigen einen ausgewählten Switch mit vollständigem Schreibvertrag. Es wurden keine Controller-Einstellungen verändert."
     },
     "selected_devices_not_returned": {
       "title": "Konfigurierter Etherlighting-Switch wird nicht mehr geliefert",

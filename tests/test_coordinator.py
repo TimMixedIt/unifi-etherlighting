@@ -23,6 +23,11 @@ class FakeController:
         return "10.5.62"
 
 
+class Network11Controller:
+    async def async_read_network_application_version(self) -> str:
+        return "11.0.81"
+
+
 class FailingAuthController:
     async def async_read_network_application_version(self) -> str:
         raise UniFiAuthenticationError("synthetic authentication failure")
@@ -141,6 +146,44 @@ async def test_coordinator_reads_version_and_devices_without_writing(hass) -> No
     assert coordinator.data.read_contract_compatible_device_count == 1
     assert coordinator.data.runtime_read_contract_reason == "read_contract_supported"
     assert coordinator.data.read_contract_mismatch_fields == ()
+    assert devices.write_count == 0
+
+
+async def test_coordinator_keeps_v11_read_only_switch_observable(hass) -> None:
+    """A missing write-only field preserves state reads, never a write path."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"site": "site_001", "device_ids": ["device_001"]},
+        options={},
+    )
+    devices = FakeDevices()
+    devices.device["ether_lighting"].pop("led_mode")
+    coordinator = EtherlightingDataUpdateCoordinator(
+        hass,
+        entry,
+        Network11Controller(),
+        devices,
+        FakeService(),  # type: ignore[arg-type]
+        FakeColorSettings(),  # type: ignore[arg-type]
+        FakeService(),  # type: ignore[arg-type]
+    )
+
+    await coordinator.async_refresh()
+
+    assert coordinator.data.controller_status == "online"
+    assert coordinator.data.network_application_version == "11.0.81"
+    assert coordinator.data.read_contract_compatible_device_count == 1
+    assert coordinator.data.contract_compatible_device_count == 0
+    assert coordinator.data.runtime_read_contract_reason == "read_contract_supported"
+    device = coordinator.data.devices[0]
+    assert device.brightness == 30
+    assert device.brightness_read_supported
+    assert not device.brightness_write_ready
+    assert device.behavior_read_supported
+    assert not device.behavior_write_ready
+    assert device.mode_read_supported
+    assert not device.mode_write_ready
+    assert coordinator.data.colors == ()
     assert devices.write_count == 0
 
 

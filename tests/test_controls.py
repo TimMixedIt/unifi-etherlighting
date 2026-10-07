@@ -127,6 +127,48 @@ async def test_select_uses_verified_mode_service(monkeypatch) -> None:
     sync_repairs.assert_awaited_once()
 
 
+async def test_read_only_switch_never_calls_behavior_service() -> None:
+    entity = object.__new__(EtherlightingBreathingSwitch)
+    entity._device_id = "device_001"
+    entity.coordinator = coordinator(
+        replace(
+            ready_device(),
+            behavior_write_supported=CapabilityState.UNSUPPORTED,
+            behavior_write_ready=False,
+        )
+    )
+    service = AsyncMock()
+    entity._runtime = SimpleNamespace(brightness_service=service)
+
+    assert entity.available
+    with pytest.raises(HomeAssistantError):
+        await entity.async_turn_on()
+
+    service.async_set_behavior.assert_not_awaited()
+    entity.coordinator.async_request_refresh.assert_not_awaited()
+
+
+async def test_read_only_select_never_calls_mode_service() -> None:
+    entity = object.__new__(EtherlightingModeSelect)
+    entity._device_id = "device_001"
+    entity.coordinator = coordinator(
+        replace(
+            ready_device(),
+            mode_write_supported=CapabilityState.UNSUPPORTED,
+            mode_write_ready=False,
+        )
+    )
+    service = AsyncMock()
+    entity._runtime = SimpleNamespace(brightness_service=service)
+
+    assert entity.available
+    with pytest.raises(HomeAssistantError):
+        await entity.async_select_option("speed")
+
+    service.async_set_mode.assert_not_awaited()
+    entity.coordinator.async_request_refresh.assert_not_awaited()
+
+
 async def test_select_rejects_unconfirmed_option_before_service_call() -> None:
     entity = object.__new__(EtherlightingModeSelect)
     entity._runtime = SimpleNamespace(brightness_service=AsyncMock())

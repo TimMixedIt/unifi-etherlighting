@@ -299,6 +299,26 @@ def test_older_network_api_generation_blocks_before_write(monkeypatch) -> None:
     assert devices.writes == []
 
 
+@pytest.mark.parametrize("requested", (30, 31))
+def test_incomplete_device_write_contract_blocks_noop_and_write(
+    monkeypatch, requested: int
+) -> None:
+    """A readable v11 Device must never be treated as a verified write."""
+    monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
+    read_only = complete_write_source(30)
+    read_only["ether_lighting"].pop("led_mode")
+    devices = FakeDevices([read_only])
+    service = BrightnessService(
+        FakeAuth(), FakeController("11.0.81"), devices  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(UnsupportedCompatibilityError):
+        asyncio.run(service.async_set_brightness("site_001", "device_001", requested))
+
+    assert devices.writes == []
+    assert service.last_verified_write is None
+
+
 def test_patch_update_uses_same_verified_write_contract(monkeypatch) -> None:
     monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
     devices = FakeDevices(

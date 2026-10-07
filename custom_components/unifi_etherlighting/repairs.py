@@ -77,6 +77,14 @@ async def async_sync_repairs(
     _sync_issue(
         hass,
         entry,
+        "write_contract_incomplete",
+        data.read_contract_compatible_device_count
+        > data.contract_compatible_device_count,
+        "write_contract_incomplete",
+    )
+    _sync_issue(
+        hass,
+        entry,
         "selected_devices_not_returned",
         data.runtime_read_contract_reason == "selected_devices_not_returned",
         "selected_devices_not_returned",

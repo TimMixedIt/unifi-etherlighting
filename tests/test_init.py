@@ -93,6 +93,76 @@ async def test_setup_and_unload_never_write_controller(hass) -> None:
         assert color_write.await_count == 0
 
 
+async def test_v11_read_only_switch_exposes_state_without_write_paths(hass) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "host": "controller.invalid",
+            "port": 443,
+            "use_ssl": True,
+            "verify_ssl": True,
+            "username": "user",
+            "password": "secret",
+            "site": "site_001",
+            "device_ids": ["device_001"],
+        },
+        options={},
+        version=2,
+    )
+    entry.add_to_hass(hass)
+    device = json.loads(
+        (Path(__file__).parent / "fixtures/device_read_brightness_30.json").read_text()
+    )
+    device["ether_lighting"].pop("led_mode")
+
+    with (
+        patch(
+            "custom_components.unifi_etherlighting.async_create_clientsession",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "custom_components.unifi_etherlighting.api.adapters.unifi_os_controller.UniFiOsControllerAdapter.async_read_network_application_version",
+            new=AsyncMock(return_value="11.0.81"),
+        ),
+        patch(
+            "custom_components.unifi_etherlighting.api.adapters.unifi_os_device.UniFiOsDeviceAdapter.async_read_devices",
+            new=AsyncMock(return_value=(device,)),
+        ),
+        patch(
+            "custom_components.unifi_etherlighting.api.adapters.unifi_os_device.UniFiOsDeviceAdapter.async_write_device",
+            new=AsyncMock(),
+        ) as write,
+        patch(
+            "custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting.UniFiOsEtherlightingSettingsAdapter.async_read_settings",
+            new=AsyncMock(),
+        ) as color_read,
+        patch(
+            "custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting.UniFiOsEtherlightingSettingsAdapter.async_write_overrides",
+            new=AsyncMock(),
+        ) as color_write,
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        entries = er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+        assert len([item for item in entries if item.domain == "number"]) == 1
+        assert len([item for item in entries if item.domain == "select"]) == 1
+        assert len([item for item in entries if item.domain == "switch"]) == 1
+        assert len([item for item in entries if item.domain == "light"]) == 0
+        runtime = entry.runtime_data
+        assert runtime.coordinator.data.controller_status == "online"
+        assert runtime.coordinator.data.contract_compatible_device_count == 0
+        assert runtime.coordinator.data.read_contract_compatible_device_count == 1
+        write.assert_not_awaited()
+        color_read.assert_not_awaited()
+        color_write.assert_not_awaited()
+        assert ir.async_get(hass).async_get_issue(
+            DOMAIN, f"{entry.entry_id}_write_contract_incomplete"
+        ) is not None
+
+        assert await hass.config_entries.async_unload(entry.entry_id)
+
+
 async def test_successful_coordinator_refresh_synchronizes_repairs(hass) -> None:
     """A controller schema change between polls must surface as a Repair."""
     entry = MockConfigEntry(

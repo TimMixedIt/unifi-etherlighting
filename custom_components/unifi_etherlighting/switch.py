@@ -12,7 +12,12 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import RuntimeData
 from .brightness import BrightnessWriteOutcome
-from .const import CONF_SITE, DOMAIN, WRITE_CAPABILITY_ENABLED
+from .const import (
+    CONF_SITE,
+    DOMAIN,
+    WRITE_CAPABILITY_ENABLED,
+    WRITE_NOT_READY_MESSAGE,
+)
 from .repairs import async_sync_repairs
 
 
@@ -91,6 +96,9 @@ class EtherlightingBreathingSwitch(CoordinatorEntity, SwitchEntity):
     async def _async_set_behavior(self, behavior: str) -> None:
         if not WRITE_CAPABILITY_ENABLED:
             raise HomeAssistantError("Etherlighting writes are not ready")
+        device = self.coordinator.device(self._device_id)
+        if device is None or not device.behavior_write_ready:
+            raise HomeAssistantError(WRITE_NOT_READY_MESSAGE)
         try:
             result = await self._runtime.brightness_service.async_set_behavior(
                 self._entry.data[CONF_SITE], self._device_id, behavior

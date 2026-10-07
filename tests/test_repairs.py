@@ -182,6 +182,47 @@ async def test_selected_devices_not_returned_uses_a_distinct_repair(hass) -> Non
     )
 
 
+async def test_read_only_device_creates_and_clears_write_contract_repair(hass) -> None:
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={})
+    data = EtherlightingCoordinatorData(
+        controller_status="online",
+        controller_type="unifi_os",
+        network_application_version="11.0.81",
+        devices=(),
+        colors=(),
+        capabilities=current_capture_capabilities(),
+        last_successful_update=None,
+        last_verified_write=None,
+        last_error=None,
+        write_capability="ready",
+        write_block_reason=None,
+        missing_confirmed_fields=(),
+        configured_device_count=1,
+        selected_device_count=1,
+        read_contract_compatible_device_count=1,
+        contract_compatible_device_count=0,
+        runtime_read_contract_reason="read_contract_supported",
+    )
+    registry = ir.async_get(hass)
+
+    await async_sync_repairs(hass, entry, data)
+    issue = registry.async_get_issue(
+        DOMAIN, f"{entry.entry_id}_write_contract_incomplete"
+    )
+    assert issue is not None
+    assert issue.translation_key == "write_contract_incomplete"
+
+    await async_sync_repairs(
+        hass, entry, replace(data, contract_compatible_device_count=1)
+    )
+    assert (
+        registry.async_get_issue(
+            DOMAIN, f"{entry.entry_id}_write_contract_incomplete"
+        )
+        is None
+    )
+
+
 async def test_write_repairs_track_only_indeterminate_results(hass) -> None:
     entry = MockConfigEntry(domain=DOMAIN, data={}, options={})
     base = EtherlightingCoordinatorData(
