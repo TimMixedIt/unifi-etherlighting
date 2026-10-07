@@ -7,7 +7,11 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.unifi_etherlighting.api.errors import UniFiAuthenticationError
+from custom_components.unifi_etherlighting.api.errors import (
+    UniFiAuthenticationError,
+    UniFiResponseError,
+    UniFiSchemaError,
+)
 from custom_components.unifi_etherlighting.const import DOMAIN
 from custom_components.unifi_etherlighting.coordinator import (
     EtherlightingDataUpdateCoordinator,
@@ -147,6 +151,78 @@ async def test_coordinator_reads_version_and_devices_without_writing(hass) -> No
     assert coordinator.data.runtime_read_contract_reason == "read_contract_supported"
     assert coordinator.data.read_contract_mismatch_fields == ()
     assert devices.write_count == 0
+
+
+@pytest.mark.parametrize(
+    "failing_method",
+    ("async_read_settings", "async_read_network_labels"),
+)
+async def test_optional_color_metadata_failure_keeps_device_controls_live(
+    hass, monkeypatch, failing_method: str
+) -> None:
+    """A color-only read failure must not make current Device data stale."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"site": "site_001", "device_ids": ["device_001"]},
+        options={},
+    )
+    devices = FakeDevices()
+    color_settings = FakeColorSettings()
+
+    async def fail_optional_color_read(*args, **kwargs):
+        raise UniFiSchemaError("synthetic optional color schema change")
+
+    monkeypatch.setattr(color_settings, failing_method, fail_optional_color_read)
+    coordinator = EtherlightingDataUpdateCoordinator(
+        hass,
+        entry,
+        FakeController(),
+        devices,
+        FakeService(),  # type: ignore[arg-type]
+        color_settings,  # type: ignore[arg-type]
+        FakeService(),  # type: ignore[arg-type]
+    )
+
+    await coordinator.async_refresh()
+
+    assert coordinator.last_update_success
+    assert coordinator.last_refresh_error is None
+    assert coordinator.data.controller_status == "online"
+    assert coordinator.data.devices[0].brightness == 30
+    assert coordinator.data.devices[0].brightness_read_supported
+    assert coordinator.data.devices[0].brightness_write_ready
+    assert coordinator.data.colors == ()
+    assert coordinator.data.color_metadata_status == "unavailable"
+    assert coordinator.data.color_metadata_error == "schema"
+    assert devices.write_count == 0
+
+
+async def test_core_device_read_failure_remains_a_failed_refresh(hass) -> None:
+    """Only optional color metadata is isolated from the core Device read."""
+
+    class FailingDevices(FakeDevices):
+        async def async_read_devices(self, site: str):
+            raise UniFiResponseError("synthetic Device response failure")
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"site": "site_001", "device_ids": ["device_001"]},
+        options={},
+    )
+    coordinator = EtherlightingDataUpdateCoordinator(
+        hass,
+        entry,
+        FakeController(),
+        FailingDevices(),
+        FakeService(),  # type: ignore[arg-type]
+        FakeColorSettings(),  # type: ignore[arg-type]
+        FakeService(),  # type: ignore[arg-type]
+    )
+
+    await coordinator.async_refresh()
+
+    assert not coordinator.last_update_success
+    assert coordinator.last_refresh_error == "response"
 
 
 async def test_coordinator_keeps_v11_read_only_switch_observable(hass) -> None:

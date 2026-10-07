@@ -177,15 +177,20 @@ async def test_select_rejects_unconfirmed_option_before_service_call() -> None:
     entity._runtime.brightness_service.async_set_mode.assert_not_awaited()
 
 
-async def test_unsupported_device_creates_no_control_entities(hass) -> None:
+async def test_unsupported_device_creates_unavailable_controls_for_configured_id(hass) -> None:
     unsupported = ready_device()
     unsupported = replace(
         unsupported,
         behavior_read_supported=False,
         mode_read_supported=False,
     )
-    entry = MockConfigEntry(domain=DOMAIN, data={}, options={})
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"device_ids": ["device_001"]},
+        options={},
+    )
     entry.runtime_data = SimpleNamespace(
+        controller_unique_id="controller_001",
         coordinator=SimpleNamespace(data=SimpleNamespace(devices=(unsupported,)))
     )
     switches: list[object] = []
@@ -196,5 +201,7 @@ async def test_unsupported_device_creates_no_control_entities(hass) -> None:
     await select_module.async_setup_entry(
         hass, entry, lambda entities: selects.extend(entities)
     )
-    assert switches == []
-    assert selects == []
+    assert len(switches) == 1
+    assert len(selects) == 1
+    assert switches[0]._device_id == "device_001"
+    assert selects[0]._device_id == "device_001"

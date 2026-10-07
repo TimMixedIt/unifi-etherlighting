@@ -45,10 +45,25 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     runtime: RuntimeData = entry.runtime_data
-    async_add_entities(
-        EtherlightingColorLight(runtime, entry, color.category, color.key)
-        for color in runtime.coordinator.data.colors
-        if color.read_supported
+    added_colors: set[tuple[str, str]] = set()
+
+    def _async_add_new_colors() -> None:
+        """Add colors that become readable after an optional metadata retry."""
+        entities: list[EtherlightingColorLight] = []
+        for color in runtime.coordinator.data.colors:
+            identity = (color.category, color.key)
+            if not color.read_supported or identity in added_colors:
+                continue
+            added_colors.add(identity)
+            entities.append(
+                EtherlightingColorLight(runtime, entry, color.category, color.key)
+            )
+        if entities:
+            async_add_entities(entities)
+
+    _async_add_new_colors()
+    entry.async_on_unload(
+        runtime.coordinator.async_add_listener(_async_add_new_colors)
     )
 
 

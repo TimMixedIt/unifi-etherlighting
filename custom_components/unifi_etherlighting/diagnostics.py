@@ -35,8 +35,12 @@ _ALLOWED_KEYS = frozenset(
         "firmware_versions",
         "capabilities",
         "last_error_code",
+        "coordinator_last_update_success",
+        "coordinator_refresh_error",
         "last_successful_read",
         "last_verified_write",
+        "color_metadata_status",
+        "color_metadata_error",
         "write_capability",
         "global_write_capability",
         "effective_write_readiness",
@@ -80,6 +84,21 @@ _ALLOWED_RUNTIME_READ_CONTRACT_REASONS = frozenset(
         "read_contract_supported",
     }
 )
+_ALLOWED_REFRESH_ERROR_CATEGORIES = frozenset(
+    {
+        "authentication",
+        "permission",
+        "transport_connection",
+        "transport_timeout",
+        "transport_tls",
+        "schema",
+        "response",
+        "unknown",
+    }
+)
+_ALLOWED_COLOR_METADATA_STATUSES = frozenset(
+    {"not_applicable", "ready", "unavailable"}
+)
 
 
 def _write_support_state(devices: tuple[Any, ...], attribute: str) -> str:
@@ -114,6 +133,14 @@ def redact_diagnostics(data: Mapping[str, Any]) -> dict[str, Any]:
             ]
         elif key == "runtime_read_contract_reason":
             if value in _ALLOWED_RUNTIME_READ_CONTRACT_REASONS:
+                redacted[key] = value
+        elif key == "coordinator_last_update_success" and isinstance(value, bool):
+            redacted[key] = value
+        elif key in {"coordinator_refresh_error", "color_metadata_error"}:
+            if value in _ALLOWED_REFRESH_ERROR_CATEGORIES or value is None:
+                redacted[key] = value
+        elif key == "color_metadata_status":
+            if value in _ALLOWED_COLOR_METADATA_STATUSES:
                 redacted[key] = value
         elif key == "read_contract_mismatch_fields" and isinstance(
             value, (list, tuple)
@@ -169,6 +196,11 @@ async def async_get_config_entry_diagnostics(
             for item in data.capabilities
         ],
         "last_error_code": data.last_error,
+        # DataUpdateCoordinator retains the last successful snapshot after a
+        # later failed poll. Export this boolean separately so diagnostics
+        # cannot accidentally present that stale snapshot as live state.
+        "coordinator_last_update_success": runtime.coordinator.last_update_success,
+        "coordinator_refresh_error": runtime.coordinator.last_refresh_error,
         # Retain the legacy field: it is a release-wide kill switch, not a
         # statement that the current Device contract permits writes.
         "write_capability": data.write_capability,
@@ -242,6 +274,8 @@ async def async_get_config_entry_diagnostics(
             and not color.write_blocked
             for color in data.colors
         ),
+        "color_metadata_status": data.color_metadata_status,
+        "color_metadata_error": data.color_metadata_error,
         "last_successful_read": (
             data.last_successful_update.isoformat()
             if data.last_successful_update

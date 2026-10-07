@@ -96,6 +96,13 @@ async def async_sync_repairs(
         any(device.brightness is None for device in data.devices),
         "etherlighting_field_missing",
     )
+    _sync_issue(
+        hass,
+        entry,
+        "color_metadata_unavailable",
+        data.color_metadata_status == "unavailable",
+        "color_metadata_unavailable",
+    )
     error = data.last_error or ""
     _sync_issue(
         hass,
