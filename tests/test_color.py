@@ -14,7 +14,10 @@ from custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting i
     UniFiOsEtherlightingSettingsAdapter,
     parse_etherlighting_settings_response,
 )
-from custom_components.unifi_etherlighting.api.errors import UniFiSchemaError
+from custom_components.unifi_etherlighting.api.errors import (
+    UniFiSchemaError,
+    UnsupportedCompatibilityError,
+)
 from custom_components.unifi_etherlighting.brightness import BrightnessWriteOutcome
 from custom_components.unifi_etherlighting.color import (
     EtherlightingColorService,
@@ -241,6 +244,33 @@ async def test_larger_color_normalization_is_not_applied() -> None:
     assert result.error_code == "write_not_applied"
     assert service.last_error_code == "write_not_applied"
     assert not service.is_write_blocked("site_001")
+    devices.async_write_device.assert_not_awaited()
+
+
+async def test_color_service_blocks_read_only_witness_before_settings_write() -> None:
+    auth = SimpleNamespace(async_ensure_authenticated=AsyncMock())
+    controller = SimpleNamespace(
+        async_read_network_application_version=AsyncMock(return_value="11.0.81")
+    )
+    device = fixture("device_read_brightness_30.json")
+    device["ether_lighting"].pop("led_mode")
+    devices = SimpleNamespace(
+        async_read_device=AsyncMock(return_value=device),
+        async_write_device=AsyncMock(),
+    )
+    settings = SimpleNamespace(
+        async_read_settings=AsyncMock(),
+        async_write_overrides=AsyncMock(),
+    )
+    service = EtherlightingColorService(auth, controller, devices, settings)
+
+    with pytest.raises(UnsupportedCompatibilityError):
+        await service.async_set_color(
+            "site_001", "device_001", "speed", "FE", "FEC105"
+        )
+
+    settings.async_read_settings.assert_not_awaited()
+    settings.async_write_overrides.assert_not_awaited()
     devices.async_write_device.assert_not_awaited()
 
 

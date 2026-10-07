@@ -21,6 +21,7 @@ from custom_components.unifi_etherlighting.compatibility import (
     COMPATIBILITY_PROFILE,
     compatibility_reason,
     device_contract_mismatches,
+    device_read_contract_is_supported,
     device_read_contract_mismatches,
     device_write_contract_is_supported,
     network_version_is_supported,
@@ -256,11 +257,13 @@ def test_contract_mismatches_agree_with_the_write_contract() -> None:
 def test_read_contract_mismatches_exclude_write_only_fields() -> None:
     exact = device()
     assert device_read_contract_mismatches(exact) == ()
+    assert device_read_contract_is_supported(exact)
 
     write_only_mismatch = deepcopy(exact)
     write_only_mismatch["config_network"].pop("gateway")
     write_only_mismatch["ether_lighting"]["led_mode"] = "off"
     assert device_read_contract_mismatches(write_only_mismatch) == ()
+    assert device_read_contract_is_supported(write_only_mismatch)
 
     changed = deepcopy(exact)
     changed["ether_lighting"]["brightness"] = 0
@@ -271,12 +274,14 @@ def test_read_contract_mismatches_exclude_write_only_fields() -> None:
         "ether_lighting.behavior",
         "ether_lighting.mode",
     )
+    assert not device_read_contract_is_supported(changed)
 
     missing_ether_lighting = deepcopy(exact)
     missing_ether_lighting.pop("ether_lighting")
     assert device_read_contract_mismatches(missing_ether_lighting) == (
         "ether_lighting",
     )
+    assert not device_read_contract_is_supported(missing_ether_lighting)
 
 
 def test_unhashable_controller_values_fail_closed_instead_of_raising() -> None:

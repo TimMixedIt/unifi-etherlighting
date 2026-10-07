@@ -183,6 +183,16 @@ def device_read_contract_mismatches(device: object) -> tuple[str, ...]:
     return tuple(found)
 
 
+def device_read_contract_is_supported(device: object) -> bool:
+    """Return whether the bounded Etherlighting state can be read safely.
+
+    This deliberately makes no claim about Device writes.  In particular, a
+    Device that no longer supplies an old write-only companion field can still
+    expose a valid brightness, behavior, and mode state.
+    """
+    return not device_read_contract_mismatches(device)
+
+
 def device_write_contract_is_supported(device: object) -> bool:
     """Require every field needed to reproduce the confirmed UI Device write."""
     if not (

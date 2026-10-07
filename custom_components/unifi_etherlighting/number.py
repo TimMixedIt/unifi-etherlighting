@@ -24,6 +24,7 @@ from .const import (
     WRITE_CAPABILITY_ENABLED,
     WRITE_CAPABILITY_STATE,
     WRITE_DISABLED_MESSAGE,
+    WRITE_NOT_READY_MESSAGE,
 )
 from .repairs import async_sync_repairs
 
@@ -108,6 +109,9 @@ class EtherlightingBrightnessNumber(CoordinatorEntity, NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         if not WRITE_CAPABILITY_ENABLED:
             raise HomeAssistantError(WRITE_DISABLED_MESSAGE)
+        device = self.coordinator.device(self._device_id)
+        if device is None or not device.brightness_write_ready:
+            raise HomeAssistantError(WRITE_NOT_READY_MESSAGE)
         target = int(value)
         if float(target) != float(value):
             raise HomeAssistantError("Brightness must use the confirmed integer step")

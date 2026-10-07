@@ -1,4 +1,4 @@
-"""Live-validated config flow with explicit Site and compatible Device selection."""
+"""Live-validated config flow with explicit Site and readable Device selection."""
 
 from __future__ import annotations
 
@@ -30,9 +30,10 @@ from .api.errors import (
     UniFiTransportError,
 )
 from .compatibility import (
-    device_contract_mismatches,
+    device_read_contract_is_supported,
+    device_read_contract_mismatches,
+    device_write_contract_is_supported,
     network_version_is_supported,
-    runtime_contract_is_supported,
 )
 from .const import (
     CONF_DEBUG_DIAGNOSTICS,
@@ -127,16 +128,22 @@ def _log_stage_failure(error: ValidationStageError, category: str) -> None:
     )
 
 
-def _contract_mismatch_summary(devices: tuple[dict[str, Any], ...]) -> str:
-    """Summarize failed contract checks per switch with fixed labels only."""
+def _read_contract_mismatch_summary(devices: tuple[dict[str, Any], ...]) -> str:
+    """Summarize failed read checks per switch with fixed labels only."""
     switches = [device for device in devices if device.get("type") == "usw"]
     if not switches:
         return "no_switch_returned"
     parts = []
     for device in switches[:_MAX_REPORTED_SWITCHES]:
         model = device.get("model")
-        label = model if isinstance(model, str) and _SAFE_MODEL.fullmatch(model) else "switch"
-        parts.append(f"{label}: {', '.join(device_contract_mismatches(device))}")
+        label = (
+            model
+            if isinstance(model, str) and _SAFE_MODEL.fullmatch(model)
+            else "switch"
+        )
+        parts.append(
+            f"{label}: {', '.join(device_read_contract_mismatches(device))}"
+        )
     if len(switches) > _MAX_REPORTED_SWITCHES:
         parts.append(f"+{len(switches) - _MAX_REPORTED_SWITCHES} more")
     return "; ".join(parts)
@@ -203,6 +210,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> tuple[dict[str, Any], ...]:
         stage = ValidationStage.SESSION
         auth: UniFiAuthSession | None = None
+        self._contract_details = ""
         try:
             session = async_create_clientsession(
                 self.hass,
@@ -239,12 +247,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             compatible = tuple(
                 device
                 for device in all_devices
-                if runtime_contract_is_supported(network_version, device)
+                if device_read_contract_is_supported(device)
             )
             if not compatible:
-                self._contract_details = _contract_mismatch_summary(all_devices)
+                self._contract_details = _read_contract_mismatch_summary(all_devices)
                 _LOGGER.warning(
-                    "No compatible Etherlighting switch; failed contract "
+                    "No readable Etherlighting switch; failed read contract "
                     "checks: %s",
                     self._contract_details,
                 )
@@ -394,15 +402,26 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     def _device_selection_schema(self) -> tuple[vol.Schema, set[str]]:
-        """Build the selector from the current read-only compatibility result."""
-        choices = [
-            selector.SelectOptionDict(
-                value=str(device["_id"]),
-                label=f"{device.get('model', 'unknown')} / {device.get('version', 'unknown')}",
+        """Build the selector from live readable Devices.
+
+        A full write-contract mismatch is deliberately represented as a
+        read-only choice rather than silently relaxed.  The coordinator and
+        entity write guards continue to reject every Device write for it.
+        """
+        choices = []
+        for device in self._compatible_devices:
+            device_id = device.get("_id")
+            if not isinstance(device_id, str):
+                continue
+            label = (
+                f"{device.get('model', 'unknown')} / "
+                f"{device.get('version', 'unknown')}"
             )
-            for device in self._compatible_devices
-            if isinstance(device.get("_id"), str)
-        ]
+            if not device_write_contract_is_supported(device):
+                label = f"{label} — read-only"
+            choices.append(
+                selector.SelectOptionDict(value=device_id, label=label)
+            )
         schema = vol.Schema(
             {
                 vol.Required(CONF_DEVICE_IDS): selector.SelectSelector(

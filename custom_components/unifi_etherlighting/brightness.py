@@ -35,6 +35,7 @@ from .compatibility import (
     ETHER_LIGHTING_WRITE_FIELDS,
     TOP_LEVEL_WRITE_FIELDS,
     UI_DEFAULTED_TOP_LEVEL_FIELDS,
+    device_write_contract_is_supported,
 )
 from .const import (
     BRIGHTNESS_MAXIMUM,
@@ -326,6 +327,16 @@ class BrightnessService:
         if not support_check(network_version, current):
             raise UnsupportedCompatibilityError(
                 f"{field} is unavailable because the runtime API contract did not match"
+            )
+        # A readable state does not imply that it is safe to construct the
+        # complete Device PUT used by the Network UI.  Keep this independent
+        # service-level gate even though entities apply the same readiness
+        # check: the coordinator can be stale and services may be invoked
+        # directly.  In particular, do not report a no-op as a verified
+        # write when the full write source is no longer available.
+        if not device_write_contract_is_supported(current):
+            raise UnsupportedCompatibilityError(
+                f"{field} is unavailable because the Device write contract did not match"
             )
         before = _etherlighting_value(current, field)
         if before == requested:

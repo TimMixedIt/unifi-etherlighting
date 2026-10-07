@@ -16,7 +16,7 @@
       },
       "devices": {
         "title": "Select Etherlighting switches",
-        "description": "Only switches matching the supported Network API generation and complete live Etherlighting schema are available.",
+        "description": "Switches matching the complete live Etherlighting schema have verified controls. A switch labelled read-only can be selected for state monitoring, but cannot issue Etherlighting or color writes.",
         "data": {
           "device_ids": "Compatible switches"
         }
@@ -48,8 +48,8 @@
       "timeout": "The controller timed out.",
       "site_not_found": "The UniFi Site could not be read.",
       "no_devices": "No devices were returned for this UniFi Site.",
-      "no_compatible_devices": "No switch exposes the complete supported Etherlighting API contract.",
-      "no_compatible_devices_detail": "No switch exposes the complete supported Etherlighting API contract. Failed checks per switch: {details}. Please include this line in a GitHub issue.",
+      "no_compatible_devices": "No switch exposes the supported Etherlighting read contract.",
+      "no_compatible_devices_detail": "No switch exposes the supported Etherlighting read contract. Failed checks per switch: {details}. Please include this line in a GitHub issue.",
       "unsupported_network_version": "This Network Application uses an unsupported API generation.",
       "unsupported_firmware": "The detected switch firmware is not confirmed for Etherlighting writes.",
       "unknown": "An unexpected error occurred.",
@@ -124,6 +124,10 @@
     "unsupported_combination": {
       "title": "Etherlighting API contract not supported",
       "description": "The detected controller or switch no longer exposes the complete validated Etherlighting schema."
+    },
+    "write_contract_incomplete": {
+      "title": "Etherlighting writes disabled for a selected switch",
+      "description": "One or more selected switches expose readable Etherlighting state but not the complete verified Device write contract. Etherlighting writes remain disabled for those switches. Site color writes require a selected switch with the complete write contract. No controller setting was changed."
     },
     "selected_devices_not_returned": {
       "title": "Configured Etherlighting switch is no longer returned",
