@@ -31,11 +31,12 @@ from .api.models import (
     mode_read_is_supported,
 )
 from .compatibility import (
-    CONFIG_NETWORK_WRITE_FIELDS,
     ETHER_LIGHTING_WRITE_FIELDS,
-    TOP_LEVEL_WRITE_FIELDS,
+    LCM_WRITE_FIELDS,
     UI_DEFAULTED_TOP_LEVEL_FIELDS,
     device_write_contract_is_supported,
+    network_write_fields,
+    top_level_write_fields,
 )
 from .const import (
     BRIGHTNESS_MAXIMUM,
@@ -104,6 +105,8 @@ def build_etherlighting_write_payload(
     if field not in _CONTROL_FIELDS:
         raise ValueError("unsupported Etherlighting control field")
     value = _validate_requested_value(field, raw_value)
+    if not device_write_contract_is_supported(current_device):
+        raise VerificationError("Current Device write contract is incomplete")
 
     config_network = current_device.get("config_network")
     ether_lighting = current_device.get("ether_lighting")
@@ -126,9 +129,11 @@ def build_etherlighting_write_payload(
     projected_ether[field] = value
 
     payload = _project_required_fields(
-        current_device, TOP_LEVEL_WRITE_FIELDS, "top-level write"
+        current_device, top_level_write_fields(current_device), "top-level write"
     )
     for ui_field, ui_default in UI_DEFAULTED_TOP_LEVEL_FIELDS.items():
+        if not any(field in current_device for field in LCM_WRITE_FIELDS):
+            continue
         ui_value = current_device[ui_field] if ui_field in current_device else ui_default
         if not isinstance(ui_value, bool):
             raise VerificationError(
@@ -136,7 +141,7 @@ def build_etherlighting_write_payload(
             )
         payload[ui_field] = ui_value
     payload["config_network"] = _project_required_fields(
-        config_network, CONFIG_NETWORK_WRITE_FIELDS, "config_network"
+        config_network, network_write_fields(config_network), "config_network"
     )
     payload["ether_lighting"] = projected_ether
     return payload
@@ -217,6 +222,14 @@ def _configuration_preserved(
             return False
     for field in _STABLE_READ_FIELDS:
         if field in before and after.get(field) != before[field]:
+            return False
+    for field in top_level_write_fields(before):
+        if field in before and (field not in after or after[field] != before[field]):
+            return False
+    if before.get("config_network") != after.get("config_network"):
+        return False
+    for field in UI_DEFAULTED_TOP_LEVEL_FIELDS:
+        if field in before and (field not in after or after[field] != before[field]):
             return False
     return True
 

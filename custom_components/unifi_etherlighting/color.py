@@ -30,6 +30,7 @@ from .brightness import (
     BrightnessWriteOutcome,
     build_etherlighting_refresh_payload,
 )
+from .compatibility import top_level_write_fields, UI_DEFAULTED_TOP_LEVEL_FIELDS
 
 _STABLE_DEVICE_FIELDS = (
     "type",
@@ -154,6 +155,11 @@ def _device_preserved(before: object, after: object) -> bool:
         return False
     if before.get("ether_lighting") != after.get("ether_lighting"):
         return False
+    if before.get("config_network") != after.get("config_network"):
+        return False
+    for field in (*top_level_write_fields(before), *UI_DEFAULTED_TOP_LEVEL_FIELDS):
+        if field in before and (field not in after or after[field] != before[field]):
+            return False
     return all(
         field not in before or after.get(field) == before[field]
         for field in _STABLE_DEVICE_FIELDS

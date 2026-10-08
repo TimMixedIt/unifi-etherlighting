@@ -53,6 +53,14 @@ creates a Repair explaining why.
 The schema check, the pre-write re-read and the post-write read-back are what
 protect your controller; the version number alone is only a lower bound.
 
+Starting with 0.5.10, DHCP configurations may omit static IP/DNS companion
+fields, while static configurations still require the complete field set.
+Switches whose Device response omits the entire LCD (`lcm_*`) group may also
+pass the write contract. Present companion fields are preserved; partial LCD
+groups remain blocked. These variants are covered by synthetic regression
+tests based on issues #22 and #40. Reversible live validation on the affected
+models is still pending; they are not yet listed as live-validated below.
+
 ## Write safety
 
 Before every Device write the integration:
