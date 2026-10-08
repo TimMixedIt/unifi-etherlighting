@@ -142,7 +142,8 @@ def test_color_equivalence_is_bounded_to_one_channel_step() -> None:
     assert not _colors_equivalent("invalid", "FFC105")
 
 
-async def test_color_service_writes_one_override_and_reads_it_back() -> None:
+@pytest.mark.parametrize("dhcp,lcd", [(False, True), (True, True), (False, False), (True, False)])
+async def test_color_service_writes_one_override_and_reads_it_back(dhcp, lcd) -> None:
     before = parse_etherlighting_settings_response(
         fixture("etherlighting_settings_read.json")
     )
@@ -152,6 +153,12 @@ async def test_color_service_writes_one_override_and_reads_it_back() -> None:
         async_read_network_application_version=AsyncMock(return_value="10.5.62")
     )
     device = fixture("device_read_brightness_30.json")
+    if dhcp:
+        device["config_network"] = {"type": "dhcp", "bonding_enabled": False}
+    if not lcd:
+        for field in tuple(device):
+            if field.startswith("lcm_"):
+                device.pop(field)
     devices = SimpleNamespace(
         async_read_device=AsyncMock(return_value=device),
         async_write_device=AsyncMock(
@@ -171,6 +178,10 @@ async def test_color_service_writes_one_override_and_reads_it_back() -> None:
     assert result.outcome is BrightnessWriteOutcome.APPLIED
     assert result.before == "FFC105"
     assert result.observed == "FEC105"
+    payload = devices.async_write_device.await_args.args[2]
+    assert payload["config_network"] == device["config_network"]
+    if not lcd:
+        assert not any(field.startswith("lcm_") for field in payload)
     kwargs = settings.async_write_overrides.await_args.kwargs
     assert kwargs["network_overrides"] == before.network_overrides
     assert kwargs["speed_overrides"] == (ColorMapping("FE", "FEC105"),)
