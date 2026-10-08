@@ -136,6 +136,14 @@ Useful status fields:
 gate. It is not a per-switch write permission; use the effective readiness
 fields (and the matching diagnostic sensor) for the current controller.
 
+After changing the selected switches, older controls may appear as
+**Unavailable** and **no longer provided**, alongside working controls with
+different entity IDs. Starting with 0.5.9, a successful integration setup removes
+obsolete brightness, breathing and mode registry entries for that configuration.
+Currently selected controls are preserved even if a switch is temporarily
+missing. Dynamic color entries are preserved. Update dashboard and automation
+references to the current controls; registry cleanup does not rewrite them.
+
 The Repair **Etherlighting write could not be verified** means the independent
 read could not prove either the requested state or the unchanged original
 state. A one-step RGB normalization does not create this Repair; only an

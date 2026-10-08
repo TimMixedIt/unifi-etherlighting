@@ -10,6 +10,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 
 from custom_components.unifi_etherlighting.const import DOMAIN
+from custom_components.unifi_etherlighting import _remove_stale_controls
 from custom_components.unifi_etherlighting.api.errors import UniFiSchemaError
 from custom_components.unifi_etherlighting.diagnostics import (
     async_get_config_entry_diagnostics,
@@ -18,6 +19,55 @@ from custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting i
     NetworkLabel,
     parse_etherlighting_settings_response,
 )
+
+
+async def test_registry_reconciliation_preserves_current_controls_and_other_entries(hass):
+    """Only obsolete known controls belonging to this entry are removed."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="controller_001",
+        data={"device_ids": ["device_001"]},
+    )
+    entry.add_to_hass(hass)
+    other_entry = MockConfigEntry(domain=DOMAIN, unique_id="other_controller")
+    other_entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    stale = []
+    retained = []
+    for domain, suffix in (
+        ("number", "brightness"),
+        ("switch", "breathing"),
+        ("select", "mode"),
+    ):
+        stale.append(registry.async_get_or_create(
+            domain, DOMAIN, f"controller_001_old_device_etherlighting_{suffix}",
+            config_entry=entry,
+        ))
+        retained.append(registry.async_get_or_create(
+            domain, DOMAIN, f"controller_001_device_001_etherlighting_{suffix}",
+            config_entry=entry,
+        ))
+        retained.append(registry.async_get_or_create(
+            domain, DOMAIN, f"other_controller_old_device_etherlighting_{suffix}",
+            config_entry=other_entry,
+        ))
+    retained.append(registry.async_get_or_create(
+        "light", DOMAIN, "controller_001_etherlighting_color_network_old",
+        config_entry=entry,
+    ))
+    retained.append(registry.async_get_or_create(
+        "number", DOMAIN, "future_unknown_control", config_entry=entry,
+    ))
+    retained.append(registry.async_get_or_create(
+        "number", "other_platform", "old_device_etherlighting_brightness",
+        config_entry=entry,
+    ))
+
+    _remove_stale_controls(hass, entry)
+    _remove_stale_controls(hass, entry)
+
+    assert all(registry.async_get(item.entity_id) is None for item in stale)
+    assert all(registry.async_get(item.entity_id) is not None for item in retained)
 
 
 async def test_setup_and_unload_never_write_controller(hass) -> None:
@@ -37,6 +87,11 @@ async def test_setup_and_unload_never_write_controller(hass) -> None:
         version=2,
     )
     entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    stale_number = registry.async_get_or_create(
+        "number", DOMAIN, "old_controller_old_device_etherlighting_brightness",
+        config_entry=entry,
+    )
     device = json.loads(
         (Path(__file__).parent / "fixtures/device_read_brightness_30.json").read_text()
     )
@@ -84,6 +139,7 @@ async def test_setup_and_unload_never_write_controller(hass) -> None:
         await hass.async_block_till_done()
         assert write.await_count == 0
         entries = er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+        assert registry.async_get(stale_number.entity_id) is None
         assert len([item for item in entries if item.domain == "number"]) == 1
         assert len([item for item in entries if item.domain == "select"]) == 1
         assert len([item for item in entries if item.domain == "switch"]) == 1

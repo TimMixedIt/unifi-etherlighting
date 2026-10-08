@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant
 from aiohttp import CookieJar
 
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
+from homeassistant.helpers import entity_registry as er
 
 from .api.adapters.unifi_os_controller import UniFiOsControllerAdapter
 from .api.adapters.unifi_os_device import UniFiOsDeviceAdapter
@@ -22,6 +23,7 @@ from .api.client import UniFiApiClient, build_controller_base_url
 from .brightness import BrightnessService
 from .color import EtherlightingColorService
 from .const import (
+    CONF_DEVICE_IDS,
     CONF_HOST,
     CONF_PASSWORD,
     CONF_PORT,
@@ -60,6 +62,36 @@ def _controller_base_url(entry: ConfigEntry) -> str:
     return build_controller_base_url(
         entry.data[CONF_HOST], entry.data[CONF_PORT], entry.data[CONF_USE_SSL]
     )
+
+
+def _remove_stale_controls(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reconcile only this entry's known, statically created switch controls.
+
+    Keep configured controls even when their device is temporarily missing.
+    Colors are dynamic and must not be removed based on a metadata poll.
+    """
+    controller_id = entry.unique_id or entry.entry_id
+    suffixes = {
+        "number": "_etherlighting_brightness",
+        "switch": "_etherlighting_breathing",
+        "select": "_etherlighting_mode",
+    }
+    expected = {
+        (domain, f"{controller_id}_{device_id}{suffix}")
+        for device_id in entry.data.get(CONF_DEVICE_IDS, ())
+        if isinstance(device_id, str)
+        for domain, suffix in suffixes.items()
+    }
+    registry = er.async_get(hass)
+    for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
+        suffix = suffixes.get(entity.domain)
+        if (
+            entity.platform == DOMAIN
+            and suffix is not None
+            and entity.unique_id.endswith(suffix)
+            and (entity.domain, entity.unique_id) not in expected
+        ):
+            registry.async_remove(entity.entity_id)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -114,6 +146,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await coordinator.async_config_entry_first_refresh()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    _remove_stale_controls(hass, entry)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     await async_sync_repairs(hass, entry, coordinator.data)
 
