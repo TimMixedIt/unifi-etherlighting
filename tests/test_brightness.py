@@ -25,6 +25,12 @@ from custom_components.unifi_etherlighting.brightness import (
     build_etherlighting_write_payload,
     build_mode_write_payload,
 )
+from custom_components.unifi_etherlighting.compatibility import (
+    LCM_WRITE_FIELDS,
+    device_contract_mismatches,
+    device_write_contract_is_supported,
+)
+from custom_components.unifi_etherlighting.color import _device_preserved
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -40,6 +46,117 @@ def complete_write_source(brightness: int = 30) -> dict[str, Any]:
     value = device(brightness)
     value["lcm_night_mode_enabled"] = False
     return value
+
+
+def variant_device(*, dhcp: bool, lcd: bool, brightness: int = 30) -> dict[str, Any]:
+    """Synthetic reported shapes, not a claimed live hardware capture."""
+    value = device(brightness)
+    if dhcp:
+        value["config_network"] = {"type": "dhcp", "bonding_enabled": False}
+    if not lcd:
+        value["model"] = "USWED76"
+        for field in LCM_WRITE_FIELDS:
+            value.pop(field)
+    return value
+
+
+@pytest.mark.parametrize("dhcp,lcd", [(True, True), (False, False), (True, False)])
+@pytest.mark.parametrize(
+    "field,target", [("brightness", 31), ("behavior", "breath"), ("mode", "speed")]
+)
+def test_reported_shapes_preserve_fields_without_inventing_defaults(
+    dhcp, lcd, field, target
+):
+    current = variant_device(dhcp=dhcp, lcd=lcd)
+    snapshot = deepcopy(current)
+    assert device_write_contract_is_supported(current)
+    assert device_contract_mismatches(current) == ()
+    payload = build_etherlighting_write_payload(current, {field: target})
+    assert payload["config_network"] == current["config_network"]
+    expected_ether = {**current["ether_lighting"], field: target}
+    assert payload["ether_lighting"] == expected_ether
+    for key, value in payload.items():
+        if key not in ("ether_lighting", "lcm_night_mode_enabled"):
+            assert value == current[key]
+    if not lcd:
+        assert not any(key.startswith("lcm_") for key in payload)
+    assert current == snapshot
+
+
+def test_dhcp_preserves_present_companion_fields_and_rejects_unknown_mode():
+    current = variant_device(dhcp=True, lcd=False)
+    current["config_network"]["dns1"] = "redacted"
+    assert (
+        build_brightness_write_payload(current, 31)["config_network"]
+        == current["config_network"]
+    )
+    for mode in ("unknown", None, [], {}):
+        current["config_network"]["type"] = mode
+        assert not device_write_contract_is_supported(current)
+        assert "config_network.type" in device_contract_mismatches(current)
+        with pytest.raises(VerificationError):
+            build_brightness_write_payload(current, 31)
+
+
+def test_partial_lcd_group_and_missing_dhcp_core_fields_remain_blocked():
+    for field in LCM_WRITE_FIELDS:
+        current = variant_device(dhcp=True, lcd=False)
+        current[field] = device()[field]
+        assert not device_write_contract_is_supported(current)
+        assert device_contract_mismatches(current)
+        with pytest.raises(VerificationError):
+            build_brightness_write_payload(current, 31)
+    for field in ("type", "bonding_enabled"):
+        current = variant_device(dhcp=True, lcd=False)
+        current["config_network"].pop(field)
+        assert not device_write_contract_is_supported(current)
+        assert device_contract_mismatches(current)
+        with pytest.raises(VerificationError):
+            build_brightness_write_payload(current, 31)
+
+
+@pytest.mark.parametrize("field", LCM_WRITE_FIELDS)
+def test_malformed_lcd_values_remain_blocked(field):
+    current = device()
+    current[field] = None
+    assert not device_write_contract_is_supported(current)
+    assert field in device_contract_mismatches(current)
+    with pytest.raises(VerificationError):
+        build_brightness_write_payload(current, 31)
+
+
+@pytest.mark.parametrize("dhcp,lcd", [(True, True), (False, False), (True, False)])
+def test_reported_shapes_write_read_back_and_restore(dhcp, lcd):
+    before = variant_device(dhcp=dhcp, lcd=lcd)
+    after = variant_device(dhcp=dhcp, lcd=lcd, brightness=31)
+    devices = FakeDevices([before, after, after, before])
+    service = BrightnessService(FakeAuth(), FakeController("11.0.81"), devices)
+    result = asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
+    assert result.outcome is BrightnessWriteOutcome.APPLIED
+    devices.response_brightness = 30
+    restored = asyncio.run(service.async_set_brightness("site_001", "device_001", 30))
+    assert restored.outcome is BrightnessWriteOutcome.APPLIED
+    assert len(devices.writes) == 2
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["config_network", "mgmt_network_id", "snmp_contact", "lcm_night_mode_enabled"],
+)
+def test_companion_state_change_blocks_further_writes(field):
+    before = complete_write_source()
+    after = complete_write_source(31)
+    if field == "config_network":
+        after[field]["type"] = "dhcp"
+    else:
+        after[field] = True if field == "lcm_night_mode_enabled" else "changed"
+    assert not _device_preserved(before, after)
+    devices = FakeDevices([before, after, after])
+    service = BrightnessService(FakeAuth(), FakeController(), devices)
+    result = asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
+    assert result.outcome is BrightnessWriteOutcome.INDETERMINATE
+    assert service.is_write_blocked("device_001")
+    assert len(devices.writes) == 1
 
 
 class FakeAuth:
@@ -158,7 +275,8 @@ def test_payload_builder_rejects_missing_fields_paths_and_limits() -> None:
     for value in (0, 101, 1.5, True):
         with pytest.raises(ValueError):
             build_brightness_write_payload(
-                complete_write_source(), value  # type: ignore[arg-type]
+                complete_write_source(),
+                value,  # type: ignore[arg-type]
             )
 
 
@@ -170,9 +288,7 @@ def test_live_read_uses_confirmed_ui_default_for_missing_night_mode() -> None:
 def test_present_night_mode_value_is_preserved_and_validated() -> None:
     current = complete_write_source()
     current["lcm_night_mode_enabled"] = True
-    assert build_brightness_write_payload(current, 31)[
-        "lcm_night_mode_enabled"
-    ] is True
+    assert build_brightness_write_payload(current, 31)["lcm_night_mode_enabled"] is True
 
     current["lcm_night_mode_enabled"] = None
     with pytest.raises(VerificationError):
@@ -251,9 +367,10 @@ async def test_behavior_and_mode_write_once_and_read_back(
     assert devices.writes[0]["ether_lighting"][field] == target_value
     unchanged = {"brightness", "behavior", "mode"} - {field}
     for unchanged_field in unchanged:
-        assert devices.writes[0]["ether_lighting"][unchanged_field] == before[
-            "ether_lighting"
-        ][unchanged_field]
+        assert (
+            devices.writes[0]["ether_lighting"][unchanged_field]
+            == before["ether_lighting"][unchanged_field]
+        )
 
 
 async def test_noop_control_does_not_write(monkeypatch) -> None:
@@ -271,7 +388,9 @@ async def test_concurrent_controls_are_serialized_without_lost_updates(
     monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
     devices = ConcurrentDevices()
     service = BrightnessService(
-        FakeAuth(), FakeController(), devices  # type: ignore[arg-type]
+        FakeAuth(),
+        FakeController(),
+        devices,  # type: ignore[arg-type]
     )
 
     brightness, mode = await asyncio.gather(
@@ -309,7 +428,9 @@ def test_incomplete_device_write_contract_blocks_noop_and_write(
     read_only["ether_lighting"].pop("led_mode")
     devices = FakeDevices([read_only])
     service = BrightnessService(
-        FakeAuth(), FakeController("11.0.81"), devices  # type: ignore[arg-type]
+        FakeAuth(),
+        FakeController("11.0.81"),
+        devices,  # type: ignore[arg-type]
     )
 
     with pytest.raises(UnsupportedCompatibilityError):
@@ -331,9 +452,7 @@ def test_patch_update_uses_same_verified_write_contract(monkeypatch) -> None:
         devices,  # type: ignore[arg-type]
     )
 
-    result = asyncio.run(
-        service.async_set_brightness("site_001", "device_001", 31)
-    )
+    result = asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
 
     assert result.outcome is BrightnessWriteOutcome.APPLIED
     assert len(devices.writes) == 1
