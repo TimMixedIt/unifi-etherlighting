@@ -87,6 +87,11 @@ async def test_setup_and_unload_never_write_controller(hass) -> None:
         version=2,
     )
     entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    stale_number = registry.async_get_or_create(
+        "number", DOMAIN, "old_controller_old_device_etherlighting_brightness",
+        config_entry=entry,
+    )
     device = json.loads(
         (Path(__file__).parent / "fixtures/device_read_brightness_30.json").read_text()
     )
@@ -134,6 +139,7 @@ async def test_setup_and_unload_never_write_controller(hass) -> None:
         await hass.async_block_till_done()
         assert write.await_count == 0
         entries = er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+        assert registry.async_get(stale_number.entity_id) is None
         assert len([item for item in entries if item.domain == "number"]) == 1
         assert len([item for item in entries if item.domain == "select"]) == 1
         assert len([item for item in entries if item.domain == "switch"]) == 1
