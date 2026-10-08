@@ -4,6 +4,20 @@
 [![Home Assistant validation](https://github.com/TimMixedIt/unifi-etherlighting/actions/workflows/validate.yml/badge.svg)](https://github.com/TimMixedIt/unifi-etherlighting/actions/workflows/validate.yml)
 [![HACS validation](https://github.com/TimMixedIt/unifi-etherlighting/actions/workflows/hacs.yml/badge.svg)](https://github.com/TimMixedIt/unifi-etherlighting/actions/workflows/hacs.yml)
 
+## Project status and AI collaboration
+
+This project was developed in collaboration with AI tools and is still evolving.
+Full functionality and reliability cannot currently be guaranteed across all
+switch models, firmware versions and Home Assistant/UniFi combinations. Automated
+tests and passing CI checks do not replace testing on real hardware.
+
+If something does not work, please [open an issue](https://github.com/TimMixedIt/unifi-etherlighting/issues/new/choose)
+with your versions, switch model and redacted diagnostics. Contributions and
+practical help are very welcome: testing, code reviews, fixes, documentation and
+verified device captures all help improve the integration. If you would like to
+contribute, get in touch through an issue or a pull request. We are asking for
+your help and experience, not money or donations.
+
 Local, HACS-compatible Home Assistant integration for verified UniFi
 Etherlighting controls. It supports:
 
