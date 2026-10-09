@@ -116,13 +116,23 @@ def test_partial_lcd_group_and_missing_dhcp_core_fields_remain_blocked():
 
 
 @pytest.mark.parametrize("field", LCM_WRITE_FIELDS)
-def test_malformed_lcd_values_remain_blocked(field):
+@pytest.mark.parametrize("value", [None, False, 0, "0", "22:00"])
+def test_established_lcd_companion_values_are_preserved(field, value):
     current = device()
-    current[field] = None
-    assert not device_write_contract_is_supported(current)
-    assert field in device_contract_mismatches(current)
-    with pytest.raises(VerificationError):
-        build_brightness_write_payload(current, 31)
+    current[field] = value
+    assert device_write_contract_is_supported(current)
+    assert device_contract_mismatches(current) == ()
+    assert build_brightness_write_payload(current, 31)[field] == value
+
+
+@pytest.mark.parametrize("field", ["type", "bonding_enabled"])
+@pytest.mark.parametrize("value", [None, False, 0, "0", "static", "dhcp"])
+def test_established_complete_network_source_remains_accepted(field, value):
+    current = device()
+    current["config_network"][field] = value
+    assert device_write_contract_is_supported(current)
+    assert device_contract_mismatches(current) == ()
+    assert build_brightness_write_payload(current, 31)["config_network"] == current["config_network"]
 
 
 @pytest.mark.parametrize("dhcp,lcd", [(True, True), (False, False), (True, False)])

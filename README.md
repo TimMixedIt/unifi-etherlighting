@@ -61,6 +61,11 @@ groups remain blocked. These variants are covered by synthetic regression
 tests based on issues #22 and #40. Reversible live validation on the affected
 models is still pending; they are not yet listed as live-validated below.
 
+0.5.11 fixes a compatibility regression in 0.5.10: additional type restrictions
+on preserved LCD/network companion values could make previously writable
+switches read-only. Complete companion groups use the established contract
+again; sparse DHCP and LCD-free support and independent read-back checks remain.
+
 ## Write safety
 
 Before every Device write the integration:

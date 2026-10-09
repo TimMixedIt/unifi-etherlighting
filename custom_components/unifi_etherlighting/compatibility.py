@@ -61,22 +61,6 @@ def top_level_write_fields(device: Mapping) -> tuple[str, ...]:
     )
 
 
-def _invalid_lcm_fields(device: Mapping) -> tuple[str, ...]:
-    """Reject malformed values in a present LCD group without guessing values."""
-    types = {
-        "lcm_brightness": int,
-        "lcm_brightness_override": bool,
-        "lcm_night_mode_begins": str,
-        "lcm_night_mode_ends": str,
-        "lcm_orientation_override": int,
-    }
-    return tuple(
-        field
-        for field, expected in types.items()
-        if field in device and type(device[field]) is not expected
-    )
-
-
 _NETWORK_VERSION = re.compile(
     r"^(?P<major>[0-9]+)\.(?P<minor>[0-9]+)\.(?P<patch>[0-9]+)"
     r"(?:[-+.][0-9A-Za-z.-]+)?$"
@@ -253,17 +237,18 @@ def device_write_contract_is_supported(device: object) -> bool:
         return False
     if not all(field in ether_lighting for field in ETHER_LIGHTING_WRITE_FIELDS):
         return False
-    if config_network.get("type") not in ("dhcp", "static"):
-        return False
-    if not isinstance(config_network.get("bonding_enabled"), bool):
-        return False
+    # Complete sources retain the established contract. Only the new sparse
+    # DHCP shape needs additional evidence before omitting companion fields.
+    if not all(field in config_network for field in CONFIG_NETWORK_WRITE_FIELDS):
+        if config_network.get("type") != "dhcp" or not isinstance(
+            config_network.get("bonding_enabled"), bool
+        ):
+            return False
     if not all(
         field in config_network for field in network_write_fields(config_network)
     ):
         return False
     if not all(field in device for field in top_level_write_fields(device)):
-        return False
-    if _invalid_lcm_fields(device):
         return False
     return all(
         field not in device or isinstance(device[field], bool)
@@ -318,10 +303,11 @@ def device_contract_mismatches(device: object) -> tuple[str, ...]:
     if not isinstance(config_network, Mapping):
         flag("config_network")
     else:
-        if config_network.get("type") not in ("dhcp", "static"):
-            flag("config_network.type")
-        if not isinstance(config_network.get("bonding_enabled"), bool):
-            flag("config_network.bonding_enabled")
+        if not all(field in config_network for field in CONFIG_NETWORK_WRITE_FIELDS):
+            if config_network.get("type") not in ("dhcp", "static"):
+                flag("config_network.type")
+            if not isinstance(config_network.get("bonding_enabled"), bool):
+                flag("config_network.bonding_enabled")
         for field in network_write_fields(config_network):
             if field not in config_network:
                 flag(f"config_network.{field}")
@@ -329,8 +315,6 @@ def device_contract_mismatches(device: object) -> tuple[str, ...]:
     for field in top_level_write_fields(device):
         if field not in device:
             flag(field)
-    for field in _invalid_lcm_fields(device):
-        flag(field)
     for field in UI_DEFAULTED_TOP_LEVEL_FIELDS:
         if field in device and not isinstance(device[field], bool):
             flag(field)

@@ -18,13 +18,20 @@ Device contract pass. Model and firmware values are reported for diagnostics,
 but are not used as brittle equality gates.
 
 From 0.5.10, static networking requires all original IP/DNS companion fields.
-DHCP requires `type=dhcp` and boolean `bonding_enabled`; IP/DNS companion fields
+Sparse DHCP requires `type=dhcp` and boolean `bonding_enabled`; IP/DNS companion fields
 are projected only when present and are never filled with invented defaults.
 The LCD group is optional only when every LCD field, including
-`lcm_night_mode_enabled`, is absent. Partial or malformed LCD groups fail closed.
+`lcm_night_mode_enabled`, is absent. Partial LCD groups fail closed.
 On an existing complete LCD group, the previously captured default for an absent
 `lcm_night_mode_enabled` remains unchanged. Post-write reads must preserve the
 network configuration and all present projected companion fields.
+
+0.5.11 restores the established presence-based contract for complete network
+and LCD companion groups. 0.5.10 introduced extra type restrictions on these
+opaque, preserved values without adequate hardware evidence; those restrictions
+could make previously writable devices read-only. Companion values are copied
+unchanged and independently checked after writing. Etherlighting value checks,
+the original night-mode boolean check, and sparse-DHCP requirements remain.
 
 These shapes are based on the field-presence reports in issues #22 and #40 and
 are tested with synthetic devices. They have not yet received reversible live
