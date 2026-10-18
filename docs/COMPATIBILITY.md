@@ -17,21 +17,26 @@ The Network version is parsed, not compared as an opaque string. Patch, minor an
 Device contract pass. Model and firmware values are reported for diagnostics,
 but are not used as brittle equality gates.
 
-From 0.5.10, static networking requires all original IP/DNS companion fields.
-Sparse DHCP requires `type=dhcp` and boolean `bonding_enabled`; IP/DNS companion fields
-are projected only when present and are never filled with invented defaults.
+Complete network and LCD companion groups follow the established
+presence-based contract: every original field must be present, and the values
+are copied unchanged into the write. Their types are not validated, because
+0.5.10 briefly added such checks without adequate hardware evidence and made
+previously writable devices read-only (reverted in 0.5.11). Because companion
+values are not type-checked, a malformed value on the controller would be
+written back as reported.
+
+A network group that omits companion fields is accepted only as sparse DHCP:
+`type=dhcp` and a boolean `bonding_enabled` are required, and IP/DNS companion
+fields are projected only when present and never filled with invented defaults.
+A sparse static group is rejected.
+
 The LCD group is optional only when every LCD field, including
 `lcm_night_mode_enabled`, is absent. Partial LCD groups fail closed.
 On an existing complete LCD group, the previously captured default for an absent
-`lcm_night_mode_enabled` remains unchanged. Post-write reads must preserve the
-network configuration and all present projected companion fields.
-
-0.5.11 restores the established presence-based contract for complete network
-and LCD companion groups. 0.5.10 introduced extra type restrictions on these
-opaque, preserved values without adequate hardware evidence; those restrictions
-could make previously writable devices read-only. Companion values are copied
-unchanged and independently checked after writing. Etherlighting value checks,
-the original night-mode boolean check, and sparse-DHCP requirements remain.
+`lcm_night_mode_enabled` remains unchanged, and a present
+`lcm_night_mode_enabled` must be a boolean. Etherlighting value checks still
+apply. Post-write reads must preserve the network configuration and all present
+projected companion fields.
 
 These shapes are based on the field-presence reports in issues #22 and #40 and
 are tested with synthetic devices. They have not yet received reversible live
