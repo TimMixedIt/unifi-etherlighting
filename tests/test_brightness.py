@@ -116,7 +116,7 @@ def test_partial_lcd_group_and_missing_dhcp_core_fields_remain_blocked():
 
 
 @pytest.mark.parametrize("field", LCM_WRITE_FIELDS)
-@pytest.mark.parametrize("value", [None, False, 0, "0", "22:00"])
+@pytest.mark.parametrize("value", [None, True, False, 0, "0", "22:00"])
 def test_established_lcd_companion_values_are_preserved(field, value):
     current = device()
     current[field] = value
@@ -544,3 +544,22 @@ async def test_central_write_gate_stops_before_every_network_operation(
         method in repr(devices.mock_calls).upper()
         for method in ("PUT", "PATCH", "POST")
     )
+
+
+@pytest.mark.parametrize("bonding", [None, 0, "0", "false"])
+def test_sparse_dhcp_requires_boolean_bonding_flag(bonding):
+    current = variant_device(dhcp=True, lcd=False)
+    current["config_network"]["bonding_enabled"] = bonding
+    assert not device_write_contract_is_supported(current)
+    assert "config_network.bonding_enabled" in device_contract_mismatches(current)
+    with pytest.raises(VerificationError):
+        build_brightness_write_payload(current, 31)
+
+
+def test_sparse_static_network_remains_blocked():
+    sparse = variant_device(dhcp=True, lcd=False)
+    sparse["config_network"]["type"] = "static"
+    assert not device_write_contract_is_supported(sparse)
+    assert device_contract_mismatches(sparse)
+    with pytest.raises(VerificationError):
+        build_brightness_write_payload(sparse, 31)
