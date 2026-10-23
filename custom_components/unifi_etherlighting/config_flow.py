@@ -26,7 +26,6 @@ from .api.errors import (
     UniFiAuthenticationError,
     UniFiPermissionError,
     UniFiResponseError,
-    UniFiSchemaError,
     UniFiTransportError,
 )
 from .compatibility import (
@@ -128,6 +127,13 @@ def _log_stage_failure(error: ValidationStageError, category: str) -> None:
     )
 
 
+def _logged_error_key(error: ValidationStageError) -> str:
+    """Return the UI error key for a failed validation and log it safely."""
+    category = _error_key_for_stage(error)
+    _log_stage_failure(error, category)
+    return category
+
+
 def _read_contract_mismatch_summary(devices: tuple[dict[str, Any], ...]) -> str:
     """Summarize failed read checks per switch with fixed labels only."""
     switches = [device for device in devices if device.get("type") == "usw"]
@@ -215,6 +221,17 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data[CONF_HOST], data[CONF_PORT], data[CONF_USE_SSL]
         )
 
+    def _validation_failure(
+        self, error: ValidationStageError
+    ) -> tuple[str, dict[str, str] | None]:
+        """Return the error key and placeholders for the connection steps."""
+        category = _logged_error_key(error)
+        if category == "no_compatible_devices" and self._contract_details:
+            return "no_compatible_devices_detail", {
+                "details": self._contract_details
+            }
+        return category, None
+
     async def _async_validate_connection(
         self, data: dict[str, Any]
     ) -> tuple[dict[str, Any], ...]:
@@ -298,43 +315,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     )
                 compatible = await self._async_validate_connection(validated)
             except ValidationStageError as err:
-                category = _error_key_for_stage(err)
-                _log_stage_failure(err, category)
-                if category == "no_compatible_devices" and self._contract_details:
-                    category = "no_compatible_devices_detail"
-                    placeholders = {"details": self._contract_details}
-                errors["base"] = category
-            except vol.Invalid as err:
-                reason = str(err)
-                errors["base"] = (
-                    reason
-                    if reason
-                    in {
-                        "unsupported_network_version",
-                        "no_devices",
-                        "no_compatible_devices",
-                    }
-                    else "unknown"
-                )
-            except UniFiAuthenticationError:
-                errors["base"] = "invalid_auth"
-            except UniFiPermissionError:
-                errors["base"] = "insufficient_permissions"
-            except UniFiTransportError as err:
-                if err.reason is TransportFailureReason.TLS:
-                    errors["base"] = "invalid_ssl"
-                elif err.reason is TransportFailureReason.TIMEOUT:
-                    errors["base"] = "timeout"
-                else:
-                    errors["base"] = "cannot_connect"
-            except UniFiSchemaError:
-                errors["base"] = "unknown"
-            except UniFiResponseError as err:
-                errors["base"] = (
-                    "site_not_found" if "HTTP 404" in str(err) else "unknown"
-                )
-            except TimeoutError:
-                errors["base"] = "timeout"
+                errors["base"], placeholders = self._validation_failure(err)
             except Exception:
                 errors["base"] = "unknown"
             else:
@@ -362,43 +343,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     _entry_connection_data(entry)
                 )
             except ValidationStageError as err:
-                category = _error_key_for_stage(err)
-                _log_stage_failure(err, category)
-                if category == "no_compatible_devices" and self._contract_details:
-                    category = "no_compatible_devices_detail"
-                    placeholders = {"details": self._contract_details}
-                errors["base"] = category
-            except vol.Invalid as err:
-                reason = str(err)
-                errors["base"] = (
-                    reason
-                    if reason
-                    in {
-                        "unsupported_network_version",
-                        "no_devices",
-                        "no_compatible_devices",
-                    }
-                    else "unknown"
-                )
-            except UniFiAuthenticationError:
-                errors["base"] = "invalid_auth"
-            except UniFiPermissionError:
-                errors["base"] = "insufficient_permissions"
-            except UniFiTransportError as err:
-                if err.reason is TransportFailureReason.TLS:
-                    errors["base"] = "invalid_ssl"
-                elif err.reason is TransportFailureReason.TIMEOUT:
-                    errors["base"] = "timeout"
-                else:
-                    errors["base"] = "cannot_connect"
-            except UniFiSchemaError:
-                errors["base"] = "unknown"
-            except UniFiResponseError as err:
-                errors["base"] = (
-                    "site_not_found" if "HTTP 404" in str(err) else "unknown"
-                )
-            except TimeoutError:
-                errors["base"] = "timeout"
+                errors["base"], placeholders = self._validation_failure(err)
             except Exception:
                 errors["base"] = "unknown"
             else:
@@ -477,12 +422,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     _entry_connection_data(entry)
                 )
             except ValidationStageError as err:
-                category = _error_key_for_stage(err)
-                _log_stage_failure(err, category)
                 return self.async_show_form(
                     step_id="devices",
                     data_schema=schema,
-                    errors={"base": category},
+                    errors={"base": _logged_error_key(err)},
                 )
             except Exception:
                 return self.async_show_form(
@@ -534,9 +477,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 await self._async_validate_connection(updated)
             except ValidationStageError as err:
-                category = _error_key_for_stage(err)
-                _log_stage_failure(err, category)
-                errors["base"] = category
+                errors["base"] = _logged_error_key(err)
             except Exception:
                 errors["base"] = "unknown"
             else:

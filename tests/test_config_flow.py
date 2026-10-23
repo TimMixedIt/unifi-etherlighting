@@ -374,7 +374,11 @@ async def test_no_compatible_devices_stays_in_user_step(hass) -> None:
 async def test_permission_failure_is_not_reported_as_bad_credentials(hass) -> None:
     with patch(
         "custom_components.unifi_etherlighting.config_flow.ConfigFlow._async_validate_connection",
-        new=AsyncMock(side_effect=UniFiPermissionError("synthetic denial")),
+        new=AsyncMock(
+            side_effect=ValidationStageError(
+                ValidationStage.LOGIN, UniFiPermissionError("synthetic denial")
+            )
+        ),
     ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
