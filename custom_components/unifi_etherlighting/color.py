@@ -24,6 +24,7 @@ from .api.errors import (
     UniFiPermissionError,
     UnsupportedCompatibilityError,
     WriteBlockedError,
+    WriteCapabilityUnavailableError,
 )
 from .api.models import color_read_is_supported
 from .brightness import (
@@ -31,6 +32,7 @@ from .brightness import (
     build_etherlighting_refresh_payload,
 )
 from .compatibility import top_level_write_fields, UI_DEFAULTED_TOP_LEVEL_FIELDS
+from .const import WRITE_BLOCK_REASON, WRITE_CAPABILITY_ENABLED
 
 _STABLE_DEVICE_FIELDS = (
     "type",
@@ -269,6 +271,9 @@ class EtherlightingColorService:
         key: str,
         color: str,
     ) -> VerifiedColorResult:
+        if not WRITE_CAPABILITY_ENABLED:
+            self.last_error_code = WRITE_BLOCK_REASON
+            raise WriteCapabilityUnavailableError(WRITE_BLOCK_REASON)
         if site_id in self._blocked_sites:
             raise WriteBlockedError(
                 "Etherlighting color writes are blocked pending operator review"

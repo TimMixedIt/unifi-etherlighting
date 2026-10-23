@@ -17,7 +17,9 @@ from custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting i
 from custom_components.unifi_etherlighting.api.errors import (
     UniFiSchemaError,
     UnsupportedCompatibilityError,
+    WriteCapabilityUnavailableError,
 )
+from custom_components.unifi_etherlighting import color as color_module
 from custom_components.unifi_etherlighting.brightness import BrightnessWriteOutcome
 from custom_components.unifi_etherlighting.color import (
     EtherlightingColorService,
@@ -381,3 +383,27 @@ async def test_light_rejects_power_and_brightness_actions() -> None:
         await entity.async_turn_off()
     with pytest.raises(HomeAssistantError):
         await entity.async_turn_on(brightness=100)
+
+
+async def test_central_write_gate_stops_color_before_every_network_operation(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(color_module, "WRITE_CAPABILITY_ENABLED", False)
+    auth = AsyncMock()
+    controller = AsyncMock()
+    devices = AsyncMock()
+    settings = AsyncMock()
+    service = EtherlightingColorService(auth, controller, devices, settings)
+
+    with pytest.raises(WriteCapabilityUnavailableError):
+        await service.async_set_color(
+            "site_001", "device_001", "speed", "FE", "FEC105"
+        )
+
+    assert service.last_error_code == "confirmed_write_configuration_incomplete"
+    auth.async_ensure_authenticated.assert_not_awaited()
+    controller.async_read_network_application_version.assert_not_awaited()
+    devices.async_read_device.assert_not_awaited()
+    settings.async_read_settings.assert_not_awaited()
+    settings.async_write_overrides.assert_not_awaited()
+    devices.async_write_device.assert_not_awaited()
