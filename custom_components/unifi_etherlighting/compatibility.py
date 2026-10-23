@@ -65,8 +65,22 @@ _NETWORK_VERSION = re.compile(
     r"^(?P<major>[0-9]+)\.(?P<minor>[0-9]+)\.(?P<patch>[0-9]+)"
     r"(?:[-+.][0-9A-Za-z.-]+)?$"
 )
-_BEHAVIOR_VALUES = frozenset({"steady", "breath"})
-_MODE_VALUES = frozenset({"network", "speed"})
+BEHAVIOR_VALUES = frozenset({"steady", "breath"})
+MODE_VALUES = frozenset({"network", "speed"})
+# Read-only Device fields that a verified write must leave unchanged; see the
+# sanitized Network UI form-initialization capture.
+STABLE_DEVICE_FIELDS = (
+    "type",
+    "model",
+    "version",
+    "lcm_brightness",
+    "lcm_brightness_override",
+    "flowctrl_enabled",
+    "dot1x_portctrl_enabled",
+    "jumboframe_enabled",
+    "stp_version",
+    "stp_priority",
+)
 
 # These labels describe contract *fields*, never controller-provided values.  They
 # are deliberately shared with diagnostics so that a future caller cannot turn a
@@ -131,39 +145,68 @@ def device_identity_contract_is_supported(device: object) -> bool:
     )
 
 
+def _brightness_is_valid(value: object) -> bool:
+    """Accept only an integer Brightness within the UI bounds."""
+    return (
+        isinstance(value, int)
+        and not isinstance(value, bool)
+        and BRIGHTNESS_MINIMUM <= value <= BRIGHTNESS_MAXIMUM
+    )
+
+
+def _identified_ether_lighting(device: object) -> Mapping | None:
+    """Return the ether_lighting object of a recognized switch, else None."""
+    if not device_identity_contract_is_supported(device):
+        return None
+    assert isinstance(device, Mapping)
+    return device["ether_lighting"]
+
+
 def brightness_read_contract_is_supported(device: object) -> bool:
     """Validate the observed Brightness field by type and UI bounds."""
-    if not device_identity_contract_is_supported(device):
-        return False
-    assert isinstance(device, Mapping)
-    ether_lighting = device["ether_lighting"]
-    assert isinstance(ether_lighting, Mapping)
-    brightness = ether_lighting.get("brightness")
-    return (
-        isinstance(brightness, int)
-        and not isinstance(brightness, bool)
-        and BRIGHTNESS_MINIMUM <= brightness <= BRIGHTNESS_MAXIMUM
+    ether_lighting = _identified_ether_lighting(device)
+    return ether_lighting is not None and _brightness_is_valid(
+        ether_lighting.get("brightness")
     )
 
 
 def behavior_read_contract_is_supported(device: object) -> bool:
     """Validate the observed Breathing behavior contract."""
-    if not device_identity_contract_is_supported(device):
-        return False
-    assert isinstance(device, Mapping)
-    ether_lighting = device["ether_lighting"]
-    assert isinstance(ether_lighting, Mapping)
-    return _is_one_of(ether_lighting.get("behavior"), _BEHAVIOR_VALUES)
+    ether_lighting = _identified_ether_lighting(device)
+    return ether_lighting is not None and _is_one_of(
+        ether_lighting.get("behavior"), BEHAVIOR_VALUES
+    )
 
 
 def mode_read_contract_is_supported(device: object) -> bool:
     """Validate the observed Etherlighting mode contract."""
-    if not device_identity_contract_is_supported(device):
-        return False
-    assert isinstance(device, Mapping)
-    ether_lighting = device["ether_lighting"]
-    assert isinstance(ether_lighting, Mapping)
-    return _is_one_of(ether_lighting.get("mode"), _MODE_VALUES)
+    ether_lighting = _identified_ether_lighting(device)
+    return ether_lighting is not None and _is_one_of(
+        ether_lighting.get("mode"), MODE_VALUES
+    )
+
+
+def _read_mismatches(device: Mapping) -> dict[str, None]:
+    """Collect failed read-contract labels in check order, without duplicates."""
+    found: dict[str, None] = {}
+    if device.get("type") != "usw":
+        found["type"] = None
+    for field in ("_id", "model", "version"):
+        value = device.get(field)
+        if not isinstance(value, str) or not value:
+            found[field] = None
+
+    ether_lighting = device.get("ether_lighting")
+    if not isinstance(ether_lighting, Mapping):
+        found["ether_lighting"] = None
+        return found
+    if not _brightness_is_valid(ether_lighting.get("brightness")):
+        found["ether_lighting.brightness"] = None
+    if not _is_one_of(ether_lighting.get("behavior"), BEHAVIOR_VALUES):
+        found["ether_lighting.behavior"] = None
+    if not _is_one_of(ether_lighting.get("mode"), MODE_VALUES):
+        found["ether_lighting.mode"] = None
+    return found
 
 
 def device_read_contract_mismatches(device: object) -> tuple[str, ...]:
@@ -176,36 +219,7 @@ def device_read_contract_mismatches(device: object) -> tuple[str, ...]:
     """
     if not isinstance(device, Mapping):
         return ("device",)
-    found: list[str] = []
-
-    def flag(label: str) -> None:
-        if label not in found:
-            found.append(label)
-
-    if device.get("type") != "usw":
-        flag("type")
-    for field in ("_id", "model", "version"):
-        value = device.get(field)
-        if not isinstance(value, str) or not value:
-            flag(field)
-
-    ether_lighting = device.get("ether_lighting")
-    if not isinstance(ether_lighting, Mapping):
-        flag("ether_lighting")
-        return tuple(found)
-
-    brightness = ether_lighting.get("brightness")
-    if not (
-        isinstance(brightness, int)
-        and not isinstance(brightness, bool)
-        and BRIGHTNESS_MINIMUM <= brightness <= BRIGHTNESS_MAXIMUM
-    ):
-        flag("ether_lighting.brightness")
-    if not _is_one_of(ether_lighting.get("behavior"), _BEHAVIOR_VALUES):
-        flag("ether_lighting.behavior")
-    if not _is_one_of(ether_lighting.get("mode"), _MODE_VALUES):
-        flag("ether_lighting.mode")
-    return tuple(found)
+    return tuple(_read_mismatches(device))
 
 
 def device_read_contract_is_supported(device: object) -> bool:
@@ -219,105 +233,53 @@ def device_read_contract_is_supported(device: object) -> bool:
 
 
 def device_write_contract_is_supported(device: object) -> bool:
-    """Require every field needed to reproduce the confirmed UI Device write."""
-    if not (
-        brightness_read_contract_is_supported(device)
-        and behavior_read_contract_is_supported(device)
-        and mode_read_contract_is_supported(device)
-    ):
-        return False
-    assert isinstance(device, Mapping)
-    ether_lighting = device["ether_lighting"]
-    config_network = device.get("config_network")
-    if not isinstance(ether_lighting, Mapping) or not isinstance(
-        config_network, Mapping
-    ):
-        return False
-    if ether_lighting.get("led_mode") != "etherlighting":
-        return False
-    if not all(field in ether_lighting for field in ETHER_LIGHTING_WRITE_FIELDS):
-        return False
-    # Complete sources retain the established contract. Only the new sparse
-    # DHCP shape needs additional evidence before omitting companion fields.
-    if not all(field in config_network for field in CONFIG_NETWORK_WRITE_FIELDS):
-        if config_network.get("type") != "dhcp" or not isinstance(
-            config_network.get("bonding_enabled"), bool
-        ):
-            return False
-    if not all(
-        field in config_network for field in network_write_fields(config_network)
-    ):
-        return False
-    if not all(field in device for field in top_level_write_fields(device)):
-        return False
-    return all(
-        field not in device or isinstance(device[field], bool)
-        for field in UI_DEFAULTED_TOP_LEVEL_FIELDS
-    )
+    """Require every field needed to reproduce the confirmed UI Device write.
+
+    Complete sources retain the established contract. Only the sparse DHCP
+    shape needs additional evidence (a boolean ``bonding_enabled``) before
+    its companion fields may be omitted; see device_contract_mismatches().
+    """
+    return not device_contract_mismatches(device)
 
 
 def device_contract_mismatches(device: object) -> tuple[str, ...]:
     """Name every failed Device contract check using fixed labels only.
 
-    Mirrors device_write_contract_is_supported(): the result is empty exactly
-    when that function returns True. Labels are built from this module's field
+    device_write_contract_is_supported() is defined as "no mismatches", so
+    the two can never disagree. Labels are built from this module's field
     constants, never from controller values, so they are safe to log and show.
     """
     if not isinstance(device, Mapping):
         return ("device",)
-    found: list[str] = []
-
-    def flag(label: str) -> None:
-        if label not in found:
-            found.append(label)
-
-    if device.get("type") != "usw":
-        flag("type")
-    for field in ("_id", "model", "version"):
-        value = device.get(field)
-        if not isinstance(value, str) or not value:
-            flag(field)
+    found = _read_mismatches(device)
 
     ether_lighting = device.get("ether_lighting")
-    if not isinstance(ether_lighting, Mapping):
-        flag("ether_lighting")
-    else:
-        brightness = ether_lighting.get("brightness")
-        if not (
-            isinstance(brightness, int)
-            and not isinstance(brightness, bool)
-            and BRIGHTNESS_MINIMUM <= brightness <= BRIGHTNESS_MAXIMUM
-        ):
-            flag("ether_lighting.brightness")
-        if not _is_one_of(ether_lighting.get("behavior"), _BEHAVIOR_VALUES):
-            flag("ether_lighting.behavior")
-        if not _is_one_of(ether_lighting.get("mode"), _MODE_VALUES):
-            flag("ether_lighting.mode")
+    if isinstance(ether_lighting, Mapping):
         if ether_lighting.get("led_mode") != "etherlighting":
-            flag("ether_lighting.led_mode")
+            found["ether_lighting.led_mode"] = None
         for field in ETHER_LIGHTING_WRITE_FIELDS:
             if field not in ether_lighting:
-                flag(f"ether_lighting.{field}")
+                found[f"ether_lighting.{field}"] = None
 
     config_network = device.get("config_network")
     if not isinstance(config_network, Mapping):
-        flag("config_network")
+        found["config_network"] = None
     else:
         if not all(field in config_network for field in CONFIG_NETWORK_WRITE_FIELDS):
             if config_network.get("type") != "dhcp":
-                flag("config_network.type")
+                found["config_network.type"] = None
             if not isinstance(config_network.get("bonding_enabled"), bool):
-                flag("config_network.bonding_enabled")
+                found["config_network.bonding_enabled"] = None
         for field in network_write_fields(config_network):
             if field not in config_network:
-                flag(f"config_network.{field}")
+                found[f"config_network.{field}"] = None
 
     for field in top_level_write_fields(device):
         if field not in device:
-            flag(field)
+            found[field] = None
     for field in UI_DEFAULTED_TOP_LEVEL_FIELDS:
         if field in device and not isinstance(device[field], bool):
-            flag(field)
+            found[field] = None
     return tuple(found)
 
 
@@ -328,14 +290,3 @@ def runtime_contract_is_supported(
     return network_version_is_supported(
         network_application_version
     ) and device_write_contract_is_supported(device)
-
-
-def compatibility_reason(network_application_version: object, device: object) -> str:
-    """Return an allowlisted compatibility reason without controller values."""
-    if not network_version_is_supported(network_application_version):
-        return "unsupported_network_api_generation"
-    if not device_identity_contract_is_supported(device):
-        return "device_identity_contract_mismatch"
-    if not device_write_contract_is_supported(device):
-        return "device_write_contract_mismatch"
-    return "compatible"

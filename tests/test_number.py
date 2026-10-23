@@ -8,9 +8,9 @@ from homeassistant.exceptions import HomeAssistantError
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.unifi_etherlighting import number as number_module
+from custom_components.unifi_etherlighting import entity as entity_module
 from custom_components.unifi_etherlighting.api.models import CapabilityState
-from custom_components.unifi_etherlighting.brightness import BrightnessWriteOutcome
+from custom_components.unifi_etherlighting.brightness import WriteOutcome
 from custom_components.unifi_etherlighting.const import CONF_SITE, DOMAIN
 from custom_components.unifi_etherlighting.coordinator import DiagnosticDevice
 from custom_components.unifi_etherlighting.number import (
@@ -52,6 +52,7 @@ def _ready_number() -> EtherlightingBrightnessNumber:
         last_update_success=True,
         device=lambda device_id: device if device_id == "device_001" else None,
         async_request_refresh=AsyncMock(),
+        last_refresh_error=None,
         data=SimpleNamespace(),
     )
     return entity
@@ -75,19 +76,19 @@ async def test_direct_number_service_call_uses_verified_brightness_service(
     monkeypatch,
 ) -> None:
     entity = _ready_number()
-    brightness_service = AsyncMock()
-    brightness_service.async_set_brightness.return_value = SimpleNamespace(
-        outcome=BrightnessWriteOutcome.APPLIED
+    control_service = AsyncMock()
+    control_service.async_set_brightness.return_value = SimpleNamespace(
+        outcome=WriteOutcome.APPLIED
     )
-    entity._runtime = SimpleNamespace(brightness_service=brightness_service)
+    entity._runtime = SimpleNamespace(control_service=control_service)
     entity._entry = SimpleNamespace(data={CONF_SITE: "site_001"})
     entity.hass = object()
     sync_repairs = AsyncMock()
-    monkeypatch.setattr(number_module, "async_sync_repairs", sync_repairs)
+    monkeypatch.setattr(entity_module, "async_sync_repairs", sync_repairs)
 
     await entity.async_set_native_value(31)
 
-    brightness_service.async_set_brightness.assert_awaited_once_with(
+    control_service.async_set_brightness.assert_awaited_once_with(
         "site_001", "device_001", 31
     )
     entity.coordinator.async_request_refresh.assert_awaited_once()
@@ -105,17 +106,18 @@ async def test_read_only_number_never_calls_brightness_service() -> None:
         last_update_success=True,
         device=lambda device_id: read_only if device_id == "device_001" else None,
         async_request_refresh=AsyncMock(),
+        last_refresh_error=None,
         data=SimpleNamespace(),
     )
-    brightness_service = AsyncMock()
-    entity._runtime = SimpleNamespace(brightness_service=brightness_service)
+    control_service = AsyncMock()
+    entity._runtime = SimpleNamespace(control_service=control_service)
 
     assert entity.available
     assert entity.native_value == 30
     with pytest.raises(HomeAssistantError):
         await entity.async_set_native_value(31)
 
-    brightness_service.async_set_brightness.assert_not_awaited()
+    control_service.async_set_brightness.assert_not_awaited()
     entity.coordinator.async_request_refresh.assert_not_awaited()
 
 

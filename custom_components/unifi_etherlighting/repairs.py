@@ -43,9 +43,16 @@ def _sync_issue(
 
 
 async def async_sync_repairs(
-    hass: HomeAssistant, entry: ConfigEntry, data: EtherlightingCoordinatorData
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    data: EtherlightingCoordinatorData,
+    refresh_error: str | None = None,
 ) -> None:
-    """Synchronize safe issues without exposing hosts, credentials, or Device IDs."""
+    """Synchronize safe issues without exposing hosts, credentials, or Device IDs.
+
+    ``refresh_error`` is the coordinator's allowlisted category of the most
+    recent failed refresh, or ``None`` after a successful one.
+    """
     _sync_issue(
         hass,
         entry,
@@ -108,7 +115,7 @@ async def async_sync_repairs(
         hass,
         entry,
         "authentication_failed",
-        error in {"UniFiAuthenticationError", "UniFiPermissionError"},
+        refresh_error in {"authentication", "permission"},
         "authentication_failed",
     )
     _sync_issue(
@@ -122,7 +129,7 @@ async def async_sync_repairs(
         hass,
         entry,
         "api_schema_mismatch",
-        error == "UniFiSchemaError",
+        refresh_error == "schema",
         "api_schema_mismatch",
     )
     _sync_issue(

@@ -34,10 +34,12 @@ from .api.models import (
     color_read_is_supported,
     mode_capability_status,
 )
-from .brightness import BrightnessService
+from .brightness import DeviceControlService
 from .color import EtherlightingColorService
 from .compatibility import (
+    BEHAVIOR_VALUES,
     COMPATIBILITY_PROFILE,
+    MODE_VALUES,
     device_read_contract_mismatches,
     network_version_is_supported,
     runtime_contract_is_supported,
@@ -157,6 +159,46 @@ def _device_choice(
     return value if isinstance(value, str) and value in allowed else None
 
 
+def _runtime_read_contract_reason(
+    network_version: str,
+    selected_ids: tuple[object, ...],
+    all_devices: tuple[dict[str, Any], ...],
+    read_contract_compatible_device_count: int,
+) -> str:
+    """Return the allowlisted reason for the current read-contract state."""
+    returned_ids = {
+        device.get("_id")
+        for device in all_devices
+        if isinstance(device.get("_id"), str)
+    }
+    if not network_version_is_supported(network_version):
+        return "unsupported_network_api_generation"
+    if not selected_ids:
+        return "no_configured_devices"
+    if any(
+        not isinstance(device_id, str) or device_id not in returned_ids
+        for device_id in selected_ids
+    ):
+        return "selected_devices_not_returned"
+    if not read_contract_compatible_device_count:
+        return "selected_devices_read_contract_mismatch"
+    return "read_contract_supported"
+
+
+def _controller_status(
+    read_contract_compatible_device_count: int, runtime_read_contract_reason: str
+) -> str:
+    if read_contract_compatible_device_count:
+        return CONTROLLER_STATUS_ONLINE
+    if runtime_read_contract_reason == "selected_devices_not_returned":
+        # None of the selected Devices provides a usable read contract and
+        # at least one saved identifier is no longer in the current read
+        # response. This is distinct from a Network-version or Device-
+        # schema incompatibility and must not imply either one.
+        return CONTROLLER_STATUS_SELECTED_DEVICES_NOT_RETURNED
+    return CONTROLLER_STATUS_UNSUPPORTED
+
+
 class EtherlightingDataUpdateCoordinator(
     DataUpdateCoordinator[EtherlightingCoordinatorData]
 ):
@@ -168,7 +210,7 @@ class EtherlightingDataUpdateCoordinator(
         entry: ConfigEntry,
         controller: UniFiOsControllerAdapter,
         devices: UniFiOsDeviceAdapter,
-        brightness_service: BrightnessService,
+        control_service: DeviceControlService,
         color_settings: UniFiOsEtherlightingSettingsAdapter,
         color_service: EtherlightingColorService,
     ) -> None:
@@ -185,7 +227,7 @@ class EtherlightingDataUpdateCoordinator(
         self._entry = entry
         self._controller = controller
         self._devices = devices
-        self._brightness_service = brightness_service
+        self._control_service = control_service
         self._color_settings = color_settings
         self._color_service = color_service
         self._last_refresh_error: str | None = None
@@ -214,155 +256,26 @@ class EtherlightingDataUpdateCoordinator(
         selected = tuple(
             device for device in all_devices if device.get("_id") in selected_ids
         )
-        diagnostic_devices_list: list[DiagnosticDevice] = []
-        for device in selected:
-            if not isinstance(device.get("_id"), str):
-                continue
-            brightness_capability = brightness_capability_status(
-                network_version, device
-            )
-            behavior_capability = behavior_capability_status(network_version, device)
-            mode_capability = mode_capability_status(network_version, device)
-            diagnostic_devices_list.append(
-                DiagnosticDevice(
-                    identifier=str(device["_id"]),
-                    model=str(device.get("model", "unknown")),
-                    firmware=str(device.get("version", "unknown")),
-                    brightness=_device_brightness(device),
-                    brightness_read_supported=brightness_capability.read_supported,
-                    brightness_write_supported=brightness_capability.write_supported,
-                    brightness_write_ready=brightness_capability.write_ready,
-                    behavior=_device_choice(
-                        device, "behavior", frozenset({"steady", "breath"})
-                    ),
-                    behavior_read_supported=behavior_capability.read_supported,
-                    behavior_write_supported=behavior_capability.write_supported,
-                    behavior_write_ready=behavior_capability.write_ready,
-                    mode=_device_choice(
-                        device, "mode", frozenset({"network", "speed"})
-                    ),
-                    mode_read_supported=mode_capability.read_supported,
-                    mode_write_supported=mode_capability.write_supported,
-                    mode_write_ready=mode_capability.write_ready,
-                    write_blocked=self._brightness_service.is_write_blocked(
-                        str(device["_id"])
-                    ),
-                    read_contract_mismatches=device_read_contract_mismatches(device),
-                )
-            )
-        diagnostic_devices = tuple(diagnostic_devices_list)
-        colors: tuple[DiagnosticColor, ...] = ()
-        color_metadata_status = "not_applicable"
-        color_metadata_error: str | None = None
-        witness = next(
-            (
-                device
-                for device in selected
-                if isinstance(device.get("_id"), str)
-                and color_read_is_supported(network_version, device)
-            ),
-            None,
+        diagnostic_devices = tuple(
+            self._diagnostic_device(network_version, device)
+            for device in selected
+            if isinstance(device.get("_id"), str)
         )
-        if witness is not None:
-            try:
-                settings = await self._color_settings.async_read_settings(site)
-                labels = await self._color_settings.async_read_network_labels(site)
-            except UniFiAuthenticationError as err:
-                # Authentication is required for every confirmed endpoint. Do
-                # not hide a reauthentication condition behind optional color
-                # metadata just because Device state was read earlier.
-                self._last_refresh_error = _safe_refresh_error_category(err)
-                raise ConfigEntryAuthFailed from err
-            except UniFiEtherlightingError as err:
-                # Color metadata is an optional, site-wide extension. A
-                # failed metadata read must never make the independently
-                # confirmed Device controls unavailable. Returning no colors
-                # also keeps every color write path closed until a later
-                # successful refresh rebuilds the metadata.
-                color_metadata_status = "unavailable"
-                color_metadata_error = _safe_refresh_error_category(err)
-                _LOGGER.debug(
-                    "Optional Etherlighting color metadata refresh failed: %s",
-                    color_metadata_error,
-                )
-            else:
-                color_metadata_status = "ready"
-                label_map = {label.key: label.name for label in labels}
-                witness_id = str(witness["_id"])
-                color_items: list[DiagnosticColor] = []
-                for item in settings.network_defaults:
-                    if item.key == "none" or item.key not in label_map:
-                        continue
-                    color_items.append(
-                        DiagnosticColor(
-                            category="network",
-                            key=item.key,
-                            name=label_map[item.key],
-                            raw_color_hex=settings.effective_color(
-                                "network", item.key
-                            ),
-                            witness_device_id=witness_id,
-                            read_supported=True,
-                            write_supported=CapabilityState.CONFIRMED,
-                            write_ready=True,
-                            write_blocked=self._color_service.is_write_blocked(site),
-                        )
-                    )
-                speed_defaults = {item.key for item in settings.speed_defaults}
-                for speed_key in SUPPORTED_SPEED_COLOR_KEYS:
-                    if speed_key not in speed_defaults:
-                        continue
-                    color_items.append(
-                        DiagnosticColor(
-                            category="speed",
-                            key=speed_key,
-                            name=speed_key,
-                            raw_color_hex=settings.effective_color(
-                                "speed", speed_key
-                            ),
-                            witness_device_id=witness_id,
-                            read_supported=True,
-                            write_supported=CapabilityState.CONFIRMED,
-                            write_ready=True,
-                            write_blocked=self._color_service.is_write_blocked(site),
-                        )
-                    )
-                colors = tuple(color_items)
+        colors, color_metadata_status, color_metadata_error = (
+            await self._async_read_colors(site, network_version, selected)
+        )
         read_contract_compatible_device_count = sum(
             device.brightness_read_supported
             or device.behavior_read_supported
             or device.mode_read_supported
             for device in diagnostic_devices
         )
-        returned_ids = {
-            device.get("_id")
-            for device in all_devices
-            if isinstance(device.get("_id"), str)
-        }
-        selected_devices_not_returned = any(
-            not isinstance(device_id, str) or device_id not in returned_ids
-            for device_id in selected_ids
+        runtime_read_contract_reason = _runtime_read_contract_reason(
+            network_version,
+            selected_ids,
+            all_devices,
+            read_contract_compatible_device_count,
         )
-        if not network_version_is_supported(network_version):
-            runtime_read_contract_reason = "unsupported_network_api_generation"
-        elif not selected_ids:
-            runtime_read_contract_reason = "no_configured_devices"
-        elif selected_devices_not_returned:
-            runtime_read_contract_reason = "selected_devices_not_returned"
-        elif not read_contract_compatible_device_count:
-            runtime_read_contract_reason = "selected_devices_read_contract_mismatch"
-        else:
-            runtime_read_contract_reason = "read_contract_supported"
-        if read_contract_compatible_device_count:
-            status = CONTROLLER_STATUS_ONLINE
-        elif runtime_read_contract_reason == "selected_devices_not_returned":
-            # None of the selected Devices provides a usable read contract and
-            # at least one saved identifier is no longer in the current read
-            # response. This is distinct from a Network-version or Device-
-            # schema incompatibility and must not imply either one.
-            status = CONTROLLER_STATUS_SELECTED_DEVICES_NOT_RETURNED
-        else:
-            status = CONTROLLER_STATUS_UNSUPPORTED
         read_contract_mismatch_fields = tuple(
             dict.fromkeys(
                 label
@@ -371,7 +284,9 @@ class EtherlightingDataUpdateCoordinator(
             )
         )
         return EtherlightingCoordinatorData(
-            controller_status=status,
+            controller_status=_controller_status(
+                read_contract_compatible_device_count, runtime_read_contract_reason
+            ),
             controller_type="unifi_os",
             network_application_version=network_version,
             devices=diagnostic_devices,
@@ -382,7 +297,7 @@ class EtherlightingDataUpdateCoordinator(
                 (
                     value
                     for value in (
-                        self._brightness_service.last_verified_write,
+                        self._control_service.last_verified_write,
                         self._color_service.last_verified_write,
                     )
                     if value is not None
@@ -391,7 +306,7 @@ class EtherlightingDataUpdateCoordinator(
             ),
             last_error=(
                 self._color_service.last_error_code
-                or self._brightness_service.last_error_code
+                or self._control_service.last_error_code
             ),
             write_capability=WRITE_CAPABILITY_STATE,
             write_block_reason=ACTIVE_WRITE_BLOCK_REASON,
@@ -415,6 +330,109 @@ class EtherlightingDataUpdateCoordinator(
             read_contract_mismatch_fields=read_contract_mismatch_fields,
             color_metadata_status=color_metadata_status,
             color_metadata_error=color_metadata_error,
+        )
+
+    def _diagnostic_device(
+        self, network_version: str, device: dict[str, Any]
+    ) -> DiagnosticDevice:
+        """Project one selected Device into bounded read and write state."""
+        brightness = brightness_capability_status(network_version, device)
+        behavior = behavior_capability_status(network_version, device)
+        mode = mode_capability_status(network_version, device)
+        return DiagnosticDevice(
+            identifier=str(device["_id"]),
+            model=str(device.get("model", "unknown")),
+            firmware=str(device.get("version", "unknown")),
+            brightness=_device_brightness(device),
+            brightness_read_supported=brightness.read_supported,
+            brightness_write_supported=brightness.write_supported,
+            brightness_write_ready=brightness.write_ready,
+            behavior=_device_choice(device, "behavior", BEHAVIOR_VALUES),
+            behavior_read_supported=behavior.read_supported,
+            behavior_write_supported=behavior.write_supported,
+            behavior_write_ready=behavior.write_ready,
+            mode=_device_choice(device, "mode", MODE_VALUES),
+            mode_read_supported=mode.read_supported,
+            mode_write_supported=mode.write_supported,
+            mode_write_ready=mode.write_ready,
+            write_blocked=self._control_service.is_write_blocked(str(device["_id"])),
+            read_contract_mismatches=device_read_contract_mismatches(device),
+        )
+
+    async def _async_read_colors(
+        self,
+        site: str,
+        network_version: str,
+        selected: tuple[dict[str, Any], ...],
+    ) -> tuple[tuple[DiagnosticColor, ...], str, str | None]:
+        """Return site colors, metadata status and error category.
+
+        Colors need one selected witness Device with a complete no-op write
+        contract; without one, color metadata is not applicable.
+        """
+        witness = next(
+            (
+                device
+                for device in selected
+                if isinstance(device.get("_id"), str)
+                and color_read_is_supported(network_version, device)
+            ),
+            None,
+        )
+        if witness is None:
+            return (), "not_applicable", None
+        try:
+            settings = await self._color_settings.async_read_settings(site)
+            labels = await self._color_settings.async_read_network_labels(site)
+        except UniFiAuthenticationError as err:
+            # Authentication is required for every confirmed endpoint. Do
+            # not hide a reauthentication condition behind optional color
+            # metadata just because Device state was read earlier.
+            self._last_refresh_error = _safe_refresh_error_category(err)
+            raise ConfigEntryAuthFailed from err
+        except UniFiEtherlightingError as err:
+            # Color metadata is an optional, site-wide extension. A
+            # failed metadata read must never make the independently
+            # confirmed Device controls unavailable. Returning no colors
+            # also keeps every color write path closed until a later
+            # successful refresh rebuilds the metadata.
+            error = _safe_refresh_error_category(err)
+            _LOGGER.debug(
+                "Optional Etherlighting color metadata refresh failed: %s", error
+            )
+            return (), "unavailable", error
+
+        witness_id = str(witness["_id"])
+        write_blocked = self._color_service.is_write_blocked(site)
+
+        def color(category: str, key: str, name: str) -> DiagnosticColor:
+            return DiagnosticColor(
+                category=category,
+                key=key,
+                name=name,
+                raw_color_hex=settings.effective_color(category, key),
+                witness_device_id=witness_id,
+                read_supported=True,
+                write_supported=CapabilityState.CONFIRMED,
+                write_ready=True,
+                write_blocked=write_blocked,
+            )
+
+        label_map = {label.key: label.name for label in labels}
+        speed_defaults = {item.key for item in settings.speed_defaults}
+        return (
+            tuple(
+                color("network", item.key, label_map[item.key])
+                for item in settings.network_defaults
+                if item.key != "none" and item.key in label_map
+            )
+            + tuple(
+                color("speed", key, key)
+                for key in SUPPORTED_SPEED_COLOR_KEYS
+                if key in speed_defaults
+            ),
+            "ready",
+            None,
         )
 
     def device(self, device_id: str) -> DiagnosticDevice | None:

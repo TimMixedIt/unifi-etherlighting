@@ -28,11 +28,7 @@ async def async_read_json(response: BoundedJsonResponse) -> Any:
     """Decode JSON without allowing an unbounded controller response."""
     content_length = response.headers.get("Content-Length")
     if content_length and content_length.isdecimal():
-        try:
-            declared_length = int(content_length)
-        except ValueError:
-            raise UniFiSchemaError("Controller response size was invalid") from None
-        if declared_length > MAX_JSON_RESPONSE_BYTES:
+        if int(content_length) > MAX_JSON_RESPONSE_BYTES:
             raise UniFiSchemaError("Controller response exceeded the safe size limit")
 
     body = bytearray()

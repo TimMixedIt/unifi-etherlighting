@@ -24,26 +24,20 @@ from .api.errors import (
     UniFiPermissionError,
     UnsupportedCompatibilityError,
     WriteBlockedError,
+    WriteCapabilityUnavailableError,
 )
 from .api.models import color_read_is_supported
 from .brightness import (
-    BrightnessWriteOutcome,
+    WriteOutcome,
     build_etherlighting_refresh_payload,
 )
-from .compatibility import top_level_write_fields, UI_DEFAULTED_TOP_LEVEL_FIELDS
-
-_STABLE_DEVICE_FIELDS = (
-    "type",
-    "model",
-    "version",
-    "lcm_brightness",
-    "lcm_brightness_override",
-    "flowctrl_enabled",
-    "dot1x_portctrl_enabled",
-    "jumboframe_enabled",
-    "stp_version",
-    "stp_priority",
+from .compatibility import (
+    STABLE_DEVICE_FIELDS,
+    UI_DEFAULTED_TOP_LEVEL_FIELDS,
+    top_level_write_fields,
 )
+from .const import WRITE_BLOCK_REASON, WRITE_CAPABILITY_ENABLED
+
 _MAX_NORMALIZED_CHANNEL_DELTA = 1
 _MAX_NORMALIZED_TOTAL_DELTA = 1
 
@@ -52,7 +46,7 @@ _MAX_NORMALIZED_TOTAL_DELTA = 1
 class VerifiedColorResult:
     """Result of a site-color write and independent read-back."""
 
-    outcome: BrightnessWriteOutcome
+    outcome: WriteOutcome
     category: str
     key: str
     before: str
@@ -162,7 +156,7 @@ def _device_preserved(before: object, after: object) -> bool:
             return False
     return all(
         field not in before or after.get(field) == before[field]
-        for field in _STABLE_DEVICE_FIELDS
+        for field in STABLE_DEVICE_FIELDS
     )
 
 
@@ -223,16 +217,16 @@ class EtherlightingColorService:
             and observed is not None
             and _colors_equivalent(requested, observed)
         ):
-            outcome = BrightnessWriteOutcome.APPLIED
+            outcome = WriteOutcome.APPLIED
             verified_at = datetime.now(UTC)
             self.last_verified_write = verified_at
             resolved_error_code = None
         elif preserved and observed == before:
-            outcome = BrightnessWriteOutcome.NOT_APPLIED
+            outcome = WriteOutcome.NOT_APPLIED
             verified_at = datetime.now(UTC)
             resolved_error_code = "write_not_applied"
         else:
-            outcome = BrightnessWriteOutcome.INDETERMINATE
+            outcome = WriteOutcome.INDETERMINATE
             verified_at = None
             self._blocked_sites.add(site_id)
             resolved_error_code = "write_verification_failed"
@@ -269,6 +263,9 @@ class EtherlightingColorService:
         key: str,
         color: str,
     ) -> VerifiedColorResult:
+        if not WRITE_CAPABILITY_ENABLED:
+            self.last_error_code = WRITE_BLOCK_REASON
+            raise WriteCapabilityUnavailableError(WRITE_BLOCK_REASON)
         if site_id in self._blocked_sites:
             raise WriteBlockedError(
                 "Etherlighting color writes are blocked pending operator review"
@@ -290,7 +287,7 @@ class EtherlightingColorService:
             self.last_verified_write = verified_at
             self.last_error_code = None
             return VerifiedColorResult(
-                BrightnessWriteOutcome.APPLIED,
+                WriteOutcome.APPLIED,
                 category,
                 key,
                 before,
@@ -388,7 +385,7 @@ class EtherlightingColorService:
         self.last_verified_write = verified_at
         self.last_error_code = None
         return VerifiedColorResult(
-            BrightnessWriteOutcome.APPLIED,
+            WriteOutcome.APPLIED,
             category,
             key,
             before,

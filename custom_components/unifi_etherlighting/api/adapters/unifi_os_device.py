@@ -14,7 +14,6 @@ from ..errors import (
     WriteCapabilityUnavailableError,
 )
 from ..models import CONFIRMED_DEVICE_READ_ENDPOINT, CONFIRMED_DEVICE_WRITE_ENDPOINT
-from ...compatibility import device_write_contract_is_supported
 
 
 def _get_response_path(data: Any, path: tuple[str, ...]) -> Any:
@@ -129,16 +128,3 @@ class UniFiOsDeviceAdapter:
         )
         validate_unifi_write_response(response)
         return response
-
-    async def async_get_capabilities(self, device: dict[str, Any]) -> set[str]:
-        if not isinstance(device, dict):
-            return set()
-        if device_write_contract_is_supported(device):
-            return {
-                "brightness",
-                "behavior",
-                "mode",
-                "network_color",
-                "speed_color",
-            }
-        return set()

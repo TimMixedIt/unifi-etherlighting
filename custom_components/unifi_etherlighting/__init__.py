@@ -20,7 +20,7 @@ from .api.adapters.unifi_os_etherlighting import (
 )
 from .api.auth import UniFiAuthSession
 from .api.client import UniFiApiClient, build_controller_base_url
-from .brightness import BrightnessService
+from .brightness import DeviceControlService
 from .color import EtherlightingColorService
 from .const import (
     CONF_DEVICE_IDS,
@@ -30,6 +30,7 @@ from .const import (
     CONF_USE_SSL,
     CONF_USERNAME,
     CONF_VERIFY_SSL,
+    CONTROL_UNIQUE_ID_SUFFIXES,
     DOMAIN,
 )
 from .coordinator import EtherlightingDataUpdateCoordinator
@@ -52,7 +53,7 @@ class RuntimeData:
     auth: UniFiAuthSession
     controller: UniFiOsControllerAdapter
     adapter: UniFiOsDeviceAdapter
-    brightness_service: BrightnessService
+    control_service: DeviceControlService
     color_settings: UniFiOsEtherlightingSettingsAdapter
     color_service: EtherlightingColorService
     controller_unique_id: str
@@ -71,11 +72,7 @@ def _remove_stale_controls(hass: HomeAssistant, entry: ConfigEntry) -> None:
     Colors are dynamic and must not be removed based on a metadata poll.
     """
     controller_id = entry.unique_id or entry.entry_id
-    suffixes = {
-        "number": "_etherlighting_brightness",
-        "switch": "_etherlighting_breathing",
-        "select": "_etherlighting_mode",
-    }
+    suffixes = CONTROL_UNIQUE_ID_SUFFIXES
     expected = {
         (domain, f"{controller_id}_{device_id}{suffix}")
         for device_id in entry.data.get(CONF_DEVICE_IDS, ())
@@ -118,7 +115,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     adapter = UniFiOsDeviceAdapter(client)
     color_settings = UniFiOsEtherlightingSettingsAdapter(client)
     write_lock = Lock()
-    brightness_service = BrightnessService(
+    control_service = DeviceControlService(
         auth, controller, adapter, write_lock=write_lock
     )
     color_service = EtherlightingColorService(
@@ -129,7 +126,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry,
         controller,
         adapter,
-        brightness_service,
+        control_service,
         color_settings,
         color_service,
     )
@@ -138,7 +135,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         auth=auth,
         controller=controller,
         adapter=adapter,
-        brightness_service=brightness_service,
+        control_service=control_service,
         color_settings=color_settings,
         color_service=color_service,
         controller_unique_id=entry.unique_id or entry.entry_id,
@@ -148,20 +145,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _remove_stale_controls(hass, entry)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
-    await async_sync_repairs(hass, entry, coordinator.data)
+    await async_sync_repairs(
+        hass, entry, coordinator.data, coordinator.last_refresh_error
+    )
 
-    def _sync_repairs_after_successful_refresh() -> None:
-        """Keep Repairs aligned when the live controller contract changes."""
-        if coordinator.last_update_success and coordinator.data is not None:
+    def _sync_repairs_after_refresh() -> None:
+        """Keep Repairs aligned with the live contract and refresh failures."""
+        if coordinator.data is not None:
             entry.async_create_task(
                 hass,
-                async_sync_repairs(hass, entry, coordinator.data),
+                async_sync_repairs(
+                    hass, entry, coordinator.data, coordinator.last_refresh_error
+                ),
                 f"{DOMAIN}_sync_repairs",
             )
 
-    entry.async_on_unload(
-        coordinator.async_add_listener(_sync_repairs_after_successful_refresh)
-    )
+    entry.async_on_unload(coordinator.async_add_listener(_sync_repairs_after_refresh))
     return True
 
 

@@ -17,8 +17,10 @@ from custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting i
 from custom_components.unifi_etherlighting.api.errors import (
     UniFiSchemaError,
     UnsupportedCompatibilityError,
+    WriteCapabilityUnavailableError,
 )
-from custom_components.unifi_etherlighting.brightness import BrightnessWriteOutcome
+from custom_components.unifi_etherlighting import color as color_module
+from custom_components.unifi_etherlighting.brightness import WriteOutcome
 from custom_components.unifi_etherlighting.color import (
     EtherlightingColorService,
     _colors_equivalent,
@@ -175,7 +177,7 @@ async def test_color_service_writes_one_override_and_reads_it_back(dhcp, lcd) ->
         "site_001", "device_001", "speed", "FE", "FEC105"
     )
 
-    assert result.outcome is BrightnessWriteOutcome.APPLIED
+    assert result.outcome is WriteOutcome.APPLIED
     assert result.before == "FFC105"
     assert result.observed == "FEC105"
     payload = devices.async_write_device.await_args.args[2]
@@ -218,7 +220,7 @@ async def test_controller_one_step_color_normalization_is_verified() -> None:
         "site_001", "device_001", "speed", "FE", "FEC105"
     )
 
-    assert result.outcome is BrightnessWriteOutcome.APPLIED
+    assert result.outcome is WriteOutcome.APPLIED
     assert result.requested == "FEC105"
     assert result.observed == "FFC105"
     assert result.error_code is None
@@ -250,7 +252,7 @@ async def test_larger_color_normalization_is_not_applied() -> None:
         "site_001", "device_001", "speed", "FE", "FDC105"
     )
 
-    assert result.outcome is BrightnessWriteOutcome.NOT_APPLIED
+    assert result.outcome is WriteOutcome.NOT_APPLIED
     assert result.observed == "FFC105"
     assert result.error_code == "write_not_applied"
     assert service.last_error_code == "write_not_applied"
@@ -309,7 +311,7 @@ async def test_indeterminate_color_result_blocks_site() -> None:
         "site_001", "device_001", "speed", "FE", "FEC105"
     )
 
-    assert result.outcome is BrightnessWriteOutcome.INDETERMINATE
+    assert result.outcome is WriteOutcome.INDETERMINATE
     assert result.error_code == "write_verification_failed"
     assert service.last_error_code == "write_verification_failed"
     assert service.is_write_blocked("site_001")
@@ -345,11 +347,12 @@ async def test_light_entity_uses_verified_color_service(monkeypatch) -> None:
         last_update_success=True,
         color=lambda category, key: color,
         async_request_refresh=AsyncMock(),
+        last_refresh_error=None,
         data=SimpleNamespace(),
     )
     service = SimpleNamespace(
         async_set_color=AsyncMock(
-            return_value=SimpleNamespace(outcome=BrightnessWriteOutcome.APPLIED)
+            return_value=SimpleNamespace(outcome=WriteOutcome.APPLIED)
         )
     )
     entity = object.__new__(EtherlightingColorLight)
@@ -361,7 +364,7 @@ async def test_light_entity_uses_verified_color_service(monkeypatch) -> None:
     entity.hass = object()
     sync_repairs = AsyncMock()
     monkeypatch.setattr(
-        "custom_components.unifi_etherlighting.light.async_sync_repairs",
+        "custom_components.unifi_etherlighting.entity.async_sync_repairs",
         sync_repairs,
     )
 
@@ -380,3 +383,27 @@ async def test_light_rejects_power_and_brightness_actions() -> None:
         await entity.async_turn_off()
     with pytest.raises(HomeAssistantError):
         await entity.async_turn_on(brightness=100)
+
+
+async def test_central_write_gate_stops_color_before_every_network_operation(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(color_module, "WRITE_CAPABILITY_ENABLED", False)
+    auth = AsyncMock()
+    controller = AsyncMock()
+    devices = AsyncMock()
+    settings = AsyncMock()
+    service = EtherlightingColorService(auth, controller, devices, settings)
+
+    with pytest.raises(WriteCapabilityUnavailableError):
+        await service.async_set_color(
+            "site_001", "device_001", "speed", "FE", "FEC105"
+        )
+
+    assert service.last_error_code == "confirmed_write_configuration_incomplete"
+    auth.async_ensure_authenticated.assert_not_awaited()
+    controller.async_read_network_application_version.assert_not_awaited()
+    devices.async_read_device.assert_not_awaited()
+    settings.async_read_settings.assert_not_awaited()
+    settings.async_write_overrides.assert_not_awaited()
+    devices.async_write_device.assert_not_awaited()

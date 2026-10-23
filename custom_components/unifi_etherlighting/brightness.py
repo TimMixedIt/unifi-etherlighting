@@ -18,8 +18,8 @@ from .api.adapters.unifi_os_device import (
 from .api.auth import UniFiAuthSession
 from .api.errors import (
     UniFiAuthenticationError,
+    UniFiEtherlightingError,
     UniFiPermissionError,
-    UniFiResponseError,
     UnsupportedCompatibilityError,
     VerificationError,
     WriteBlockedError,
@@ -31,8 +31,11 @@ from .api.models import (
     mode_read_is_supported,
 )
 from .compatibility import (
+    BEHAVIOR_VALUES,
     ETHER_LIGHTING_WRITE_FIELDS,
     LCM_WRITE_FIELDS,
+    MODE_VALUES,
+    STABLE_DEVICE_FIELDS,
     UI_DEFAULTED_TOP_LEVEL_FIELDS,
     device_write_contract_is_supported,
     network_write_fields,
@@ -45,21 +48,6 @@ from .const import (
     WRITE_CAPABILITY_ENABLED,
 )
 
-# Live-confirmed Network UI form initialization; see the sanitized source capture.
-_STABLE_READ_FIELDS = (
-    "type",
-    "model",
-    "version",
-    "lcm_brightness",
-    "lcm_brightness_override",
-    "flowctrl_enabled",
-    "dot1x_portctrl_enabled",
-    "jumboframe_enabled",
-    "stp_version",
-    "stp_priority",
-)
-_BEHAVIOR_VALUES = frozenset({"steady", "breath"})
-_MODE_VALUES = frozenset({"network", "speed"})
 _CONTROL_FIELDS = frozenset({"brightness", "behavior", "mode"})
 
 
@@ -83,11 +71,11 @@ def _validate_requested_value(field: str, value: object) -> int | str:
             )
         return value
     if field == "behavior":
-        if not isinstance(value, str) or value not in _BEHAVIOR_VALUES:
+        if not isinstance(value, str) or value not in BEHAVIOR_VALUES:
             raise ValueError("behavior must be steady or breath")
         return value
     if field == "mode":
-        if not isinstance(value, str) or value not in _MODE_VALUES:
+        if not isinstance(value, str) or value not in MODE_VALUES:
             raise ValueError("mode must be network or speed")
         return value
     raise ValueError("unsupported Etherlighting control field")
@@ -177,7 +165,7 @@ def build_etherlighting_refresh_payload(
     )
 
 
-class BrightnessWriteOutcome(StrEnum):
+class WriteOutcome(StrEnum):
     """Outcome shared by all verified Etherlighting control writes."""
 
     APPLIED = "applied"
@@ -187,7 +175,7 @@ class BrightnessWriteOutcome(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class VerifiedEtherlightingResult:
-    outcome: BrightnessWriteOutcome
+    outcome: WriteOutcome
     field: str
     before: int | str
     requested: int | str
@@ -195,8 +183,6 @@ class VerifiedEtherlightingResult:
     verified_at: datetime | None
     error_code: str | None = None
 
-
-VerifiedBrightnessResult = VerifiedEtherlightingResult
 
 
 def _etherlighting_value(device: Mapping[str, Any], field: str) -> int | str:
@@ -220,7 +206,7 @@ def _configuration_preserved(
     for key, value in before_ether.items():
         if key != changed_field and after_ether.get(key) != value:
             return False
-    for field in _STABLE_READ_FIELDS:
+    for field in STABLE_DEVICE_FIELDS:
         if field in before and after.get(field) != before[field]:
             return False
     for field in top_level_write_fields(before):
@@ -234,7 +220,7 @@ def _configuration_preserved(
     return True
 
 
-class BrightnessService:
+class DeviceControlService:
     """Write one confirmed field once, read it back, and fail closed."""
 
     def __init__(
@@ -281,16 +267,16 @@ class BrightnessService:
             preserved = False
 
         if preserved and observed == requested:
-            outcome = BrightnessWriteOutcome.APPLIED
+            outcome = WriteOutcome.APPLIED
             verified_at = datetime.now(UTC)
             self.last_verified_write = verified_at
             resolved_error_code = None
         elif preserved and observed == before:
-            outcome = BrightnessWriteOutcome.NOT_APPLIED
+            outcome = WriteOutcome.NOT_APPLIED
             verified_at = datetime.now(UTC)
             resolved_error_code = "write_not_applied"
         else:
-            outcome = BrightnessWriteOutcome.INDETERMINATE
+            outcome = WriteOutcome.INDETERMINATE
             verified_at = None
             self._blocked_devices.add(device_id)
             resolved_error_code = "write_verification_failed"
@@ -357,7 +343,7 @@ class BrightnessService:
             self.last_verified_write = verified_at
             self.last_error_code = None
             return VerifiedEtherlightingResult(
-                BrightnessWriteOutcome.APPLIED,
+                WriteOutcome.APPLIED,
                 field,
                 before,
                 requested,
@@ -397,7 +383,9 @@ class BrightnessService:
                 requested,
                 reauthenticate=True,
             )
-        except (UniFiResponseError, VerificationError):
+        except UniFiEtherlightingError:
+            # Includes transport, schema and DeviceNotFound errors after the
+            # PUT: the write may have reached the controller, so classify it.
             return await self._classify_after_failure(
                 site,
                 device_id,
@@ -412,7 +400,7 @@ class BrightnessService:
         self.last_verified_write = verified_at
         self.last_error_code = None
         return VerifiedEtherlightingResult(
-            BrightnessWriteOutcome.APPLIED,
+            WriteOutcome.APPLIED,
             field,
             before,
             requested,
