@@ -390,3 +390,35 @@ async def test_coordinator_authentication_failure_starts_reauth(hass) -> None:
 
     with pytest.raises(ConfigEntryAuthFailed):
         await coordinator._async_update_data()
+
+
+def test_read_contract_reason_and_status_cover_every_branch() -> None:
+    from custom_components.unifi_etherlighting.coordinator import (
+        _controller_status,
+        _runtime_read_contract_reason,
+    )
+
+    returned = ({"_id": "device_001"},)
+    cases = (
+        (("10.5.61", ("device_001",), returned, 1), "unsupported_network_api_generation"),
+        (("10.5.62", (), returned, 0), "no_configured_devices"),
+        (("10.5.62", ("device_002",), returned, 0), "selected_devices_not_returned"),
+        (("10.5.62", (None,), returned, 0), "selected_devices_not_returned"),
+        (
+            ("10.5.62", ("device_001",), returned, 0),
+            "selected_devices_read_contract_mismatch",
+        ),
+        (("10.5.62", ("device_001",), returned, 1), "read_contract_supported"),
+    )
+    for args, reason in cases:
+        assert _runtime_read_contract_reason(*args) == reason
+
+    assert _controller_status(1, "selected_devices_not_returned") == "online"
+    assert (
+        _controller_status(0, "selected_devices_not_returned")
+        == "selected_devices_not_returned"
+    )
+    assert (
+        _controller_status(0, "unsupported_network_api_generation")
+        == "unsupported_version_combination"
+    )
