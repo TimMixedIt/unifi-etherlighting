@@ -304,7 +304,7 @@ def device_contract_mismatches(device: object) -> tuple[str, ...]:
         flag("config_network")
     else:
         if not all(field in config_network for field in CONFIG_NETWORK_WRITE_FIELDS):
-            if config_network.get("type") not in ("dhcp", "static"):
+            if config_network.get("type") != "dhcp":
                 flag("config_network.type")
             if not isinstance(config_network.get("bonding_enabled"), bool):
                 flag("config_network.bonding_enabled")

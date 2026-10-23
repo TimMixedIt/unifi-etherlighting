@@ -198,6 +198,7 @@ def test_contract_mismatches_name_each_failed_check() -> None:
     sparse["lcm_night_mode_enabled"] = "yes"
     assert device_contract_mismatches(sparse) == (
         "ether_lighting.led_mode",
+        "config_network.type",
         "config_network.gateway",
         "lcm_orientation_override",
         "snmp_contact",
