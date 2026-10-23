@@ -31,8 +31,11 @@ from .api.models import (
     mode_read_is_supported,
 )
 from .compatibility import (
+    BEHAVIOR_VALUES,
     ETHER_LIGHTING_WRITE_FIELDS,
     LCM_WRITE_FIELDS,
+    MODE_VALUES,
+    STABLE_DEVICE_FIELDS,
     UI_DEFAULTED_TOP_LEVEL_FIELDS,
     device_write_contract_is_supported,
     network_write_fields,
@@ -45,21 +48,6 @@ from .const import (
     WRITE_CAPABILITY_ENABLED,
 )
 
-# Live-confirmed Network UI form initialization; see the sanitized source capture.
-_STABLE_READ_FIELDS = (
-    "type",
-    "model",
-    "version",
-    "lcm_brightness",
-    "lcm_brightness_override",
-    "flowctrl_enabled",
-    "dot1x_portctrl_enabled",
-    "jumboframe_enabled",
-    "stp_version",
-    "stp_priority",
-)
-_BEHAVIOR_VALUES = frozenset({"steady", "breath"})
-_MODE_VALUES = frozenset({"network", "speed"})
 _CONTROL_FIELDS = frozenset({"brightness", "behavior", "mode"})
 
 
@@ -83,11 +71,11 @@ def _validate_requested_value(field: str, value: object) -> int | str:
             )
         return value
     if field == "behavior":
-        if not isinstance(value, str) or value not in _BEHAVIOR_VALUES:
+        if not isinstance(value, str) or value not in BEHAVIOR_VALUES:
             raise ValueError("behavior must be steady or breath")
         return value
     if field == "mode":
-        if not isinstance(value, str) or value not in _MODE_VALUES:
+        if not isinstance(value, str) or value not in MODE_VALUES:
             raise ValueError("mode must be network or speed")
         return value
     raise ValueError("unsupported Etherlighting control field")
@@ -220,7 +208,7 @@ def _configuration_preserved(
     for key, value in before_ether.items():
         if key != changed_field and after_ether.get(key) != value:
             return False
-    for field in _STABLE_READ_FIELDS:
+    for field in STABLE_DEVICE_FIELDS:
         if field in before and after.get(field) != before[field]:
             return False
     for field in top_level_write_fields(before):

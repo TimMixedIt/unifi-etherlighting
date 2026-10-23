@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import RuntimeData
-from .const import VERSION
+from .const import CONF_DIAGNOSTIC_SENSORS, VERSION
 from .coordinator import EtherlightingCoordinatorData
 from .entity import EtherlightingDiagnosticEntity
 from .write_readiness import effective_write_ready, effective_write_readiness
@@ -33,7 +33,7 @@ async def async_setup_entry(
 ) -> None:
     """Add entry-level diagnostics backed by the coordinator's safe projection."""
     runtime: RuntimeData = entry.runtime_data
-    if not entry.options.get("diagnostic_sensors", True):
+    if not entry.options.get(CONF_DIAGNOSTIC_SENSORS, True):
         return
     async_add_entities(
         [

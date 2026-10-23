@@ -65,8 +65,22 @@ _NETWORK_VERSION = re.compile(
     r"^(?P<major>[0-9]+)\.(?P<minor>[0-9]+)\.(?P<patch>[0-9]+)"
     r"(?:[-+.][0-9A-Za-z.-]+)?$"
 )
-_BEHAVIOR_VALUES = frozenset({"steady", "breath"})
-_MODE_VALUES = frozenset({"network", "speed"})
+BEHAVIOR_VALUES = frozenset({"steady", "breath"})
+MODE_VALUES = frozenset({"network", "speed"})
+# Read-only Device fields that a verified write must leave unchanged; see the
+# sanitized Network UI form-initialization capture.
+STABLE_DEVICE_FIELDS = (
+    "type",
+    "model",
+    "version",
+    "lcm_brightness",
+    "lcm_brightness_override",
+    "flowctrl_enabled",
+    "dot1x_portctrl_enabled",
+    "jumboframe_enabled",
+    "stp_version",
+    "stp_priority",
+)
 
 # These labels describe contract *fields*, never controller-provided values.  They
 # are deliberately shared with diagnostics so that a future caller cannot turn a
@@ -153,7 +167,7 @@ def behavior_read_contract_is_supported(device: object) -> bool:
     assert isinstance(device, Mapping)
     ether_lighting = device["ether_lighting"]
     assert isinstance(ether_lighting, Mapping)
-    return _is_one_of(ether_lighting.get("behavior"), _BEHAVIOR_VALUES)
+    return _is_one_of(ether_lighting.get("behavior"), BEHAVIOR_VALUES)
 
 
 def mode_read_contract_is_supported(device: object) -> bool:
@@ -163,7 +177,7 @@ def mode_read_contract_is_supported(device: object) -> bool:
     assert isinstance(device, Mapping)
     ether_lighting = device["ether_lighting"]
     assert isinstance(ether_lighting, Mapping)
-    return _is_one_of(ether_lighting.get("mode"), _MODE_VALUES)
+    return _is_one_of(ether_lighting.get("mode"), MODE_VALUES)
 
 
 def device_read_contract_mismatches(device: object) -> tuple[str, ...]:
@@ -201,9 +215,9 @@ def device_read_contract_mismatches(device: object) -> tuple[str, ...]:
         and BRIGHTNESS_MINIMUM <= brightness <= BRIGHTNESS_MAXIMUM
     ):
         flag("ether_lighting.brightness")
-    if not _is_one_of(ether_lighting.get("behavior"), _BEHAVIOR_VALUES):
+    if not _is_one_of(ether_lighting.get("behavior"), BEHAVIOR_VALUES):
         flag("ether_lighting.behavior")
-    if not _is_one_of(ether_lighting.get("mode"), _MODE_VALUES):
+    if not _is_one_of(ether_lighting.get("mode"), MODE_VALUES):
         flag("ether_lighting.mode")
     return tuple(found)
 
@@ -289,9 +303,9 @@ def device_contract_mismatches(device: object) -> tuple[str, ...]:
             and BRIGHTNESS_MINIMUM <= brightness <= BRIGHTNESS_MAXIMUM
         ):
             flag("ether_lighting.brightness")
-        if not _is_one_of(ether_lighting.get("behavior"), _BEHAVIOR_VALUES):
+        if not _is_one_of(ether_lighting.get("behavior"), BEHAVIOR_VALUES):
             flag("ether_lighting.behavior")
-        if not _is_one_of(ether_lighting.get("mode"), _MODE_VALUES):
+        if not _is_one_of(ether_lighting.get("mode"), MODE_VALUES):
             flag("ether_lighting.mode")
         if ether_lighting.get("led_mode") != "etherlighting":
             flag("ether_lighting.led_mode")

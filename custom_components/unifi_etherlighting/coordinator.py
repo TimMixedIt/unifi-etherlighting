@@ -37,7 +37,9 @@ from .api.models import (
 from .brightness import BrightnessService
 from .color import EtherlightingColorService
 from .compatibility import (
+    BEHAVIOR_VALUES,
     COMPATIBILITY_PROFILE,
+    MODE_VALUES,
     device_read_contract_mismatches,
     network_version_is_supported,
     runtime_contract_is_supported,
@@ -233,13 +235,13 @@ class EtherlightingDataUpdateCoordinator(
                     brightness_write_supported=brightness_capability.write_supported,
                     brightness_write_ready=brightness_capability.write_ready,
                     behavior=_device_choice(
-                        device, "behavior", frozenset({"steady", "breath"})
+                        device, "behavior", BEHAVIOR_VALUES
                     ),
                     behavior_read_supported=behavior_capability.read_supported,
                     behavior_write_supported=behavior_capability.write_supported,
                     behavior_write_ready=behavior_capability.write_ready,
                     mode=_device_choice(
-                        device, "mode", frozenset({"network", "speed"})
+                        device, "mode", MODE_VALUES
                     ),
                     mode_read_supported=mode_capability.read_supported,
                     mode_write_supported=mode_capability.write_supported,

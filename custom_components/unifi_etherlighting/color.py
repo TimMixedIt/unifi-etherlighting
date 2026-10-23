@@ -31,21 +31,13 @@ from .brightness import (
     BrightnessWriteOutcome,
     build_etherlighting_refresh_payload,
 )
-from .compatibility import top_level_write_fields, UI_DEFAULTED_TOP_LEVEL_FIELDS
+from .compatibility import (
+    STABLE_DEVICE_FIELDS,
+    UI_DEFAULTED_TOP_LEVEL_FIELDS,
+    top_level_write_fields,
+)
 from .const import WRITE_BLOCK_REASON, WRITE_CAPABILITY_ENABLED
 
-_STABLE_DEVICE_FIELDS = (
-    "type",
-    "model",
-    "version",
-    "lcm_brightness",
-    "lcm_brightness_override",
-    "flowctrl_enabled",
-    "dot1x_portctrl_enabled",
-    "jumboframe_enabled",
-    "stp_version",
-    "stp_priority",
-)
 _MAX_NORMALIZED_CHANNEL_DELTA = 1
 _MAX_NORMALIZED_TOTAL_DELTA = 1
 
@@ -164,7 +156,7 @@ def _device_preserved(before: object, after: object) -> bool:
             return False
     return all(
         field not in before or after.get(field) == before[field]
-        for field in _STABLE_DEVICE_FIELDS
+        for field in STABLE_DEVICE_FIELDS
     )
 
 
