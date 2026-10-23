@@ -28,6 +28,13 @@ CONTROLLER_STATUS_ONLINE = "online"
 CONTROLLER_STATUS_UNSUPPORTED = "unsupported_version_combination"
 CONTROLLER_STATUS_SELECTED_DEVICES_NOT_RETURNED = "selected_devices_not_returned"
 
+# Unique-ID suffixes of the statically created per-Device controls, by platform.
+CONTROL_UNIQUE_ID_SUFFIXES: dict[str, str] = {
+    "number": "_etherlighting_brightness",
+    "switch": "_etherlighting_breathing",
+    "select": "_etherlighting_mode",
+}
+
 BRIGHTNESS_MINIMUM = 1
 BRIGHTNESS_MAXIMUM = 100
 BRIGHTNESS_STEP = 1

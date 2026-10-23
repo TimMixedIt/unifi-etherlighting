@@ -1,4 +1,4 @@
-"""The sole productive control entity: verified Etherlighting brightness."""
+"""Verified Etherlighting brightness control."""
 
 from __future__ import annotations
 
@@ -6,28 +6,24 @@ from homeassistant.components.number import NumberEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import RuntimeData
-from .brightness import BrightnessWriteOutcome
 from .const import (
     ACTIVE_WRITE_BLOCK_REASON,
     BRIGHTNESS_MAXIMUM,
     BRIGHTNESS_MINIMUM,
     BRIGHTNESS_STEP,
     BRIGHTNESS_UNIT,
-    CONF_DEVICE_IDS,
-    CONF_SITE,
-    DOMAIN,
+    CONTROL_UNIQUE_ID_SUFFIXES,
     MISSING_CONFIRMED_WRITE_FIELDS,
-    WRITE_CAPABILITY_ENABLED,
     WRITE_CAPABILITY_STATE,
-    WRITE_DISABLED_MESSAGE,
-    WRITE_NOT_READY_MESSAGE,
 )
-from .repairs import async_sync_repairs
+from .entity import (
+    EtherlightingDeviceControl,
+    async_finish_verified_write,
+    configured_device_ids,
+)
 
 
 async def async_setup_entry(
@@ -36,41 +32,26 @@ async def async_setup_entry(
     runtime: RuntimeData = entry.runtime_data
     async_add_entities(
         EtherlightingBrightnessNumber(runtime, entry, device_id)
-        for device_id in dict.fromkeys(
-            device_id
-            for device_id in entry.data.get(CONF_DEVICE_IDS, ())
-            if isinstance(device_id, str)
-        )
+        for device_id in configured_device_ids(entry)
     )
 
 
-class EtherlightingBrightnessNumber(CoordinatorEntity, NumberEntity):
-    _attr_has_entity_name = True
+class EtherlightingBrightnessNumber(EtherlightingDeviceControl, NumberEntity):
     _attr_translation_key = "etherlighting_brightness"
     _attr_native_min_value = BRIGHTNESS_MINIMUM
     _attr_native_max_value = BRIGHTNESS_MAXIMUM
     _attr_native_step = BRIGHTNESS_STEP
     _attr_native_unit_of_measurement = BRIGHTNESS_UNIT
-
-    def __init__(
-        self, runtime: RuntimeData, entry: ConfigEntry, device_id: str
-    ) -> None:
-        super().__init__(runtime.coordinator)
-        self._runtime = runtime
-        self._entry = entry
-        self._device_id = device_id
-        self._attr_unique_id = (
-            f"{runtime.controller_unique_id}_{device_id}_etherlighting_brightness"
-        )
+    _unique_id_suffix = CONTROL_UNIQUE_ID_SUFFIXES["number"]
 
     @property
     def native_value(self) -> float | None:
-        device = self.coordinator.device(self._device_id)
+        device = self._device
         return device.brightness if device is not None else None
 
     @property
     def available(self) -> bool:
-        device = self.coordinator.device(self._device_id)
+        device = self._device
         return bool(
             self.coordinator.last_update_success
             and device is not None
@@ -80,7 +61,7 @@ class EtherlightingBrightnessNumber(CoordinatorEntity, NumberEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, object]:
-        device = self.coordinator.device(self._device_id)
+        device = self._device
         return {
             "brightness_read_supported": bool(
                 device and device.brightness_read_supported
@@ -96,46 +77,17 @@ class EtherlightingBrightnessNumber(CoordinatorEntity, NumberEntity):
             "missing_confirmed_fields": list(MISSING_CONFIRMED_WRITE_FIELDS),
         }
 
-    @property
-    def device_info(self) -> DeviceInfo:
-        device = self.coordinator.device(self._device_id)
-        return DeviceInfo(
-            identifiers={
-                (DOMAIN, f"{self._runtime.controller_unique_id}:{self._device_id}")
-            },
-            name="UniFi Etherlighting Switch",
-            manufacturer="Ubiquiti",
-            model=device.model if device is not None else None,
-            sw_version=device.firmware if device is not None else None,
-            via_device=(DOMAIN, self._runtime.controller_unique_id),
-        )
-
     async def async_set_native_value(self, value: float) -> None:
-        if not WRITE_CAPABILITY_ENABLED:
-            raise HomeAssistantError(WRITE_DISABLED_MESSAGE)
-        device = self.coordinator.device(self._device_id)
-        if device is None or not device.brightness_write_ready:
-            raise HomeAssistantError(WRITE_NOT_READY_MESSAGE)
+        device = self._device
+        self._ensure_write_ready(device is not None and device.brightness_write_ready)
         target = int(value)
         if float(target) != float(value):
             raise HomeAssistantError("Brightness must use the confirmed integer step")
-        try:
-            result = await self._runtime.brightness_service.async_set_brightness(
-                self._entry.data[CONF_SITE], self._device_id, target
-            )
-        except Exception as err:
-            raise HomeAssistantError(
-                "Etherlighting brightness write failed safely"
-            ) from err
-
-        await self.coordinator.async_request_refresh()
-        await async_sync_repairs(
-            self.hass,
+        await async_finish_verified_write(
+            self,
             self._entry,
-            self.coordinator.data,
-            self.coordinator.last_refresh_error,
+            "brightness",
+            lambda: self._runtime.brightness_service.async_set_brightness(
+                self._site, self._device_id, target
+            ),
         )
-        if result.outcome is not BrightnessWriteOutcome.APPLIED:
-            raise HomeAssistantError(
-                f"Brightness write was not verified ({result.outcome.value})"
-            )

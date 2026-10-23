@@ -364,7 +364,7 @@ async def test_light_entity_uses_verified_color_service(monkeypatch) -> None:
     entity.hass = object()
     sync_repairs = AsyncMock()
     monkeypatch.setattr(
-        "custom_components.unifi_etherlighting.light.async_sync_repairs",
+        "custom_components.unifi_etherlighting.entity.async_sync_repairs",
         sync_repairs,
     )
 

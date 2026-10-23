@@ -8,7 +8,7 @@ from homeassistant.exceptions import HomeAssistantError
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.unifi_etherlighting import number as number_module
+from custom_components.unifi_etherlighting import entity as entity_module
 from custom_components.unifi_etherlighting.api.models import CapabilityState
 from custom_components.unifi_etherlighting.brightness import BrightnessWriteOutcome
 from custom_components.unifi_etherlighting.const import CONF_SITE, DOMAIN
@@ -84,7 +84,7 @@ async def test_direct_number_service_call_uses_verified_brightness_service(
     entity._entry = SimpleNamespace(data={CONF_SITE: "site_001"})
     entity.hass = object()
     sync_repairs = AsyncMock()
-    monkeypatch.setattr(number_module, "async_sync_repairs", sync_repairs)
+    monkeypatch.setattr(entity_module, "async_sync_repairs", sync_repairs)
 
     await entity.async_set_native_value(31)
 

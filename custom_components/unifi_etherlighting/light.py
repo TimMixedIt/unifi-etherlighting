@@ -6,14 +6,11 @@ from homeassistant.components.light import ATTR_RGB_COLOR, ColorMode, LightEntit
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import RuntimeData
-from .brightness import BrightnessWriteOutcome
-from .const import CONF_SITE, DOMAIN
-from .repairs import async_sync_repairs
+from .const import CONF_SITE
+from .entity import EtherlightingControllerEntity, async_finish_verified_write
 
 
 def _hex_to_rgb(value: str) -> tuple[int, int, int]:
@@ -67,10 +64,9 @@ async def async_setup_entry(
     )
 
 
-class EtherlightingColorLight(CoordinatorEntity, LightEntity):
+class EtherlightingColorLight(EtherlightingControllerEntity, LightEntity):
     """An always-on color swatch; only RGB changes are writable."""
 
-    _attr_has_entity_name = True
     _attr_supported_color_modes = {ColorMode.RGB}
     _attr_icon = "mdi:palette"
 
@@ -81,7 +77,7 @@ class EtherlightingColorLight(CoordinatorEntity, LightEntity):
         category: str,
         key: str,
     ) -> None:
-        super().__init__(runtime.coordinator)
+        super().__init__(runtime.coordinator, runtime.controller_unique_id)
         self._runtime = runtime
         self._entry = entry
         self._category = category
@@ -136,15 +132,6 @@ class EtherlightingColorLight(CoordinatorEntity, LightEntity):
             ),
         }
 
-    @property
-    def device_info(self) -> DeviceInfo:
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._runtime.controller_unique_id)},
-            name="UniFi Etherlighting Controller",
-            manufacturer="Ubiquiti",
-            model="UniFi OS",
-        )
-
     async def async_turn_on(self, **kwargs: object) -> None:
         if ATTR_RGB_COLOR not in kwargs:
             raise HomeAssistantError(
@@ -159,30 +146,18 @@ class EtherlightingColorLight(CoordinatorEntity, LightEntity):
         if color is None or not color.write_ready or color.write_blocked:
             raise HomeAssistantError("Etherlighting color writes are not ready")
         requested = _rgb_to_hex(kwargs[ATTR_RGB_COLOR])
-        try:
-            result = await self._runtime.color_service.async_set_color(
+        await async_finish_verified_write(
+            self,
+            self._entry,
+            "color",
+            lambda: self._runtime.color_service.async_set_color(
                 self._entry.data[CONF_SITE],
                 color.witness_device_id,
                 self._category,
                 self._key,
                 requested,
-            )
-        except Exception as err:
-            raise HomeAssistantError(
-                "Etherlighting color write failed safely"
-            ) from err
-
-        await self.coordinator.async_request_refresh()
-        await async_sync_repairs(
-            self.hass,
-            self._entry,
-            self.coordinator.data,
-            self.coordinator.last_refresh_error,
+            ),
         )
-        if result.outcome is not BrightnessWriteOutcome.APPLIED:
-            raise HomeAssistantError(
-                f"Etherlighting color write was not verified ({result.outcome.value})"
-            )
 
     async def async_turn_off(self, **kwargs: object) -> None:
         raise HomeAssistantError(

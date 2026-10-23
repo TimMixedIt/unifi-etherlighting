@@ -30,6 +30,7 @@ from .const import (
     CONF_USE_SSL,
     CONF_USERNAME,
     CONF_VERIFY_SSL,
+    CONTROL_UNIQUE_ID_SUFFIXES,
     DOMAIN,
 )
 from .coordinator import EtherlightingDataUpdateCoordinator
@@ -71,11 +72,7 @@ def _remove_stale_controls(hass: HomeAssistant, entry: ConfigEntry) -> None:
     Colors are dynamic and must not be removed based on a metadata poll.
     """
     controller_id = entry.unique_id or entry.entry_id
-    suffixes = {
-        "number": "_etherlighting_brightness",
-        "switch": "_etherlighting_breathing",
-        "select": "_etherlighting_mode",
-    }
+    suffixes = CONTROL_UNIQUE_ID_SUFFIXES
     expected = {
         (domain, f"{controller_id}_{device_id}{suffix}")
         for device_id in entry.data.get(CONF_DEVICE_IDS, ())

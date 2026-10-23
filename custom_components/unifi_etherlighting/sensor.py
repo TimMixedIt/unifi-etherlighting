@@ -12,7 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from . import RuntimeData
 from .const import CONF_DIAGNOSTIC_SENSORS, VERSION
 from .coordinator import EtherlightingCoordinatorData
-from .entity import EtherlightingDiagnosticEntity
+from .entity import EtherlightingControllerEntity
 from .write_readiness import effective_write_ready, effective_write_readiness
 
 
@@ -59,7 +59,7 @@ async def async_setup_entry(
     )
 
 
-class EtherlightingStatusSensor(EtherlightingDiagnosticEntity, SensorEntity):
+class EtherlightingStatusSensor(EtherlightingControllerEntity, SensorEntity):
     _attr_translation_key = "integration_status"
 
     def __init__(self, coordinator: Any, controller_unique_id: str) -> None:
@@ -100,7 +100,7 @@ class EtherlightingStatusSensor(EtherlightingDiagnosticEntity, SensorEntity):
         }
 
 
-class EtherlightingVersionSensor(EtherlightingDiagnosticEntity, SensorEntity):
+class EtherlightingVersionSensor(EtherlightingControllerEntity, SensorEntity):
     _attr_translation_key = "network_application_version"
 
     def __init__(self, coordinator: Any, controller_unique_id: str) -> None:
@@ -112,7 +112,7 @@ class EtherlightingVersionSensor(EtherlightingDiagnosticEntity, SensorEntity):
         return self.coordinator.data.network_application_version or "unknown"
 
 
-class EtherlightingWriteCapabilitySensor(EtherlightingDiagnosticEntity, SensorEntity):
+class EtherlightingWriteCapabilitySensor(EtherlightingControllerEntity, SensorEntity):
     """Expose effective runtime readiness separately from the release-wide gate."""
 
     _attr_translation_key = "brightness_write_capability"
@@ -187,7 +187,7 @@ class EtherlightingWriteCapabilitySensor(EtherlightingDiagnosticEntity, SensorEn
         }
 
 
-class EtherlightingCapabilitySensor(EtherlightingDiagnosticEntity, SensorEntity):
+class EtherlightingCapabilitySensor(EtherlightingControllerEntity, SensorEntity):
     def __init__(
         self, coordinator: Any, controller_unique_id: str, capability_state: str
     ) -> None:

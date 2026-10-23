@@ -10,6 +10,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.unifi_etherlighting import select as select_module
 from custom_components.unifi_etherlighting import switch as switch_module
+from custom_components.unifi_etherlighting import entity as entity_module
 from custom_components.unifi_etherlighting.api.models import CapabilityState
 from custom_components.unifi_etherlighting.brightness import BrightnessWriteOutcome
 from custom_components.unifi_etherlighting.const import CONF_SITE, DOMAIN
@@ -94,7 +95,7 @@ async def test_switch_uses_verified_behavior_service(
     entity._entry = SimpleNamespace(data={CONF_SITE: "site_001"})
     entity.hass = object()
     sync_repairs = AsyncMock()
-    monkeypatch.setattr(switch_module, "async_sync_repairs", sync_repairs)
+    monkeypatch.setattr(entity_module, "async_sync_repairs", sync_repairs)
 
     await getattr(entity, turn_method)()
 
@@ -117,7 +118,7 @@ async def test_select_uses_verified_mode_service(monkeypatch) -> None:
     entity._entry = SimpleNamespace(data={CONF_SITE: "site_001"})
     entity.hass = object()
     sync_repairs = AsyncMock()
-    monkeypatch.setattr(select_module, "async_sync_repairs", sync_repairs)
+    monkeypatch.setattr(entity_module, "async_sync_repairs", sync_repairs)
 
     await entity.async_select_option("speed")
 
@@ -206,3 +207,27 @@ async def test_unsupported_device_creates_unavailable_controls_for_configured_id
     assert len(selects) == 1
     assert switches[0]._device_id == "device_001"
     assert selects[0]._device_id == "device_001"
+
+
+def test_device_controls_keep_their_registry_unique_ids() -> None:
+    from custom_components.unifi_etherlighting.number import (
+        EtherlightingBrightnessNumber,
+    )
+
+    runtime = SimpleNamespace(
+        controller_unique_id="controller_001",
+        coordinator=coordinator(ready_device()),
+    )
+    entry = SimpleNamespace(data={CONF_SITE: "site_001"})
+    assert {
+        cls(runtime, entry, "device_001").unique_id
+        for cls in (
+            EtherlightingBrightnessNumber,
+            EtherlightingBreathingSwitch,
+            EtherlightingModeSelect,
+        )
+    } == {
+        "controller_001_device_001_etherlighting_brightness",
+        "controller_001_device_001_etherlighting_breathing",
+        "controller_001_device_001_etherlighting_mode",
+    }
