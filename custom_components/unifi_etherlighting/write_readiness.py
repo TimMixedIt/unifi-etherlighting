@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Protocol
+from typing import Any, Protocol
 
 from .const import WRITE_CAPABILITY_BLOCKED_STATE, WRITE_CAPABILITY_STATE
 
 WRITE_READINESS_READY = "ready"
 WRITE_READINESS_NOT_READY = "not_ready"
+DEVICE_CONTROLS = ("brightness", "behavior", "mode")
+COLOR_CATEGORIES = ("network", "speed")
 
 
 class _DeviceWriteState(Protocol):
@@ -67,3 +69,48 @@ def effective_write_readiness(
     if effective_write_ready(global_write_capability, devices, colors):
         return WRITE_READINESS_READY
     return WRITE_READINESS_NOT_READY
+
+
+def _write_support_state(states: Iterable[str]) -> str:
+    """Return the strongest write-evidence state among the given values."""
+    present = set(states)
+    if "confirmed" in present:
+        return "confirmed"
+    if "candidate" in present:
+        return "candidate"
+    return "unsupported"
+
+
+def device_control_summary(devices: Iterable[Any]) -> dict[str, object]:
+    """Aggregate per-control read and write state across selected Devices."""
+    devices = tuple(devices)
+    summary: dict[str, object] = {}
+    for control in DEVICE_CONTROLS:
+        summary[f"{control}_read_supported"] = any(
+            getattr(device, f"{control}_read_supported") for device in devices
+        )
+        summary[f"{control}_write_supported"] = _write_support_state(
+            getattr(device, f"{control}_write_supported").value for device in devices
+        )
+        summary[f"{control}_write_ready"] = any(
+            getattr(device, f"{control}_write_ready") for device in devices
+        )
+    return summary
+
+
+def color_control_summary(colors: Iterable[Any]) -> dict[str, object]:
+    """Aggregate read and write state for the network and speed palettes."""
+    colors = tuple(colors)
+    summary: dict[str, object] = {}
+    for category in COLOR_CATEGORIES:
+        items = tuple(color for color in colors if color.category == category)
+        summary[f"{category}_color_read_supported"] = any(
+            color.read_supported for color in items
+        )
+        summary[f"{category}_color_write_supported"] = _write_support_state(
+            color.write_supported.value for color in items
+        )
+        summary[f"{category}_color_write_ready"] = any(
+            color.write_ready and not color.write_blocked for color in items
+        )
+    return summary

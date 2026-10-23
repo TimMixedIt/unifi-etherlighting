@@ -13,7 +13,11 @@ from . import RuntimeData
 from .const import CONF_DIAGNOSTIC_SENSORS, VERSION
 from .coordinator import EtherlightingCoordinatorData
 from .entity import EtherlightingControllerEntity
-from .write_readiness import effective_write_ready, effective_write_readiness
+from .write_readiness import (
+    device_control_summary,
+    effective_write_ready,
+    effective_write_readiness,
+)
 
 
 def _capability_map(
@@ -132,7 +136,6 @@ class EtherlightingWriteCapabilitySensor(EtherlightingControllerEntity, SensorEn
     def extra_state_attributes(self) -> dict[str, object]:
         data = self.coordinator.data
         devices = data.devices
-        write_states = {device.brightness_write_supported.value for device in devices}
         return {
             # ``write_capability`` used to be this sensor's state.  Keep the
             # release-wide gate visible, but do not present it as a per-device
@@ -141,45 +144,7 @@ class EtherlightingWriteCapabilitySensor(EtherlightingControllerEntity, SensorEn
             "effective_write_ready": effective_write_ready(
                 data.write_capability, devices, data.colors
             ),
-            "brightness_read_supported": any(
-                device.brightness_read_supported for device in devices
-            ),
-            "brightness_write_supported": (
-                "confirmed"
-                if "confirmed" in write_states
-                else "candidate"
-                if "candidate" in write_states
-                else "unsupported"
-            ),
-            "brightness_write_ready": any(
-                device.brightness_write_ready for device in devices
-            ),
-            "behavior_read_supported": any(
-                device.behavior_read_supported for device in devices
-            ),
-            "behavior_write_supported": (
-                "confirmed"
-                if any(
-                    device.behavior_write_supported.value == "confirmed"
-                    for device in devices
-                )
-                else "unsupported"
-            ),
-            "behavior_write_ready": any(
-                device.behavior_write_ready for device in devices
-            ),
-            "mode_read_supported": any(
-                device.mode_read_supported for device in devices
-            ),
-            "mode_write_supported": (
-                "confirmed"
-                if any(
-                    device.mode_write_supported.value == "confirmed"
-                    for device in devices
-                )
-                else "unsupported"
-            ),
-            "mode_write_ready": any(device.mode_write_ready for device in devices),
+            **device_control_summary(devices),
             "write_block_reason": data.write_block_reason,
             "missing_confirmed_fields": list(
                 data.missing_confirmed_fields

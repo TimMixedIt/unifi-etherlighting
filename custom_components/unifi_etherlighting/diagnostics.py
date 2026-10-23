@@ -11,7 +11,12 @@ from homeassistant.core import HomeAssistant
 from . import RuntimeData
 from .compatibility import READ_CONTRACT_MISMATCH_LABELS
 from .const import VERSION
-from .write_readiness import effective_write_ready, effective_write_readiness
+from .write_readiness import (
+    color_control_summary,
+    device_control_summary,
+    effective_write_ready,
+    effective_write_readiness,
+)
 
 _ALLOWED_KEYS = frozenset(
     {
@@ -99,15 +104,6 @@ _ALLOWED_REFRESH_ERROR_CATEGORIES = frozenset(
 _ALLOWED_COLOR_METADATA_STATUSES = frozenset(
     {"not_applicable", "ready", "unavailable"}
 )
-
-
-def _write_support_state(devices: tuple[Any, ...], attribute: str) -> str:
-    states = {getattr(device, attribute).value for device in devices}
-    if "confirmed" in states:
-        return "confirmed"
-    if "candidate" in states:
-        return "candidate"
-    return "unsupported"
 
 
 def redact_diagnostics(data: Mapping[str, Any]) -> dict[str, Any]:
@@ -211,69 +207,8 @@ async def async_get_config_entry_diagnostics(
         "effective_write_ready": effective_ready,
         "write_block_reason": data.write_block_reason,
         "missing_confirmed_fields": list(data.missing_confirmed_fields),
-        "brightness_read_supported": any(
-            device.brightness_read_supported for device in data.devices
-        ),
-        "brightness_write_supported": _write_support_state(
-            data.devices, "brightness_write_supported"
-        ),
-        "brightness_write_ready": any(
-            device.brightness_write_ready for device in data.devices
-        ),
-        "behavior_read_supported": any(
-            device.behavior_read_supported for device in data.devices
-        ),
-        "behavior_write_supported": _write_support_state(
-            data.devices, "behavior_write_supported"
-        ),
-        "behavior_write_ready": any(
-            device.behavior_write_ready for device in data.devices
-        ),
-        "mode_read_supported": any(
-            device.mode_read_supported for device in data.devices
-        ),
-        "mode_write_supported": _write_support_state(
-            data.devices, "mode_write_supported"
-        ),
-        "mode_write_ready": any(device.mode_write_ready for device in data.devices),
-        "network_color_read_supported": any(
-            color.category == "network" and color.read_supported
-            for color in data.colors
-        ),
-        "network_color_write_supported": (
-            "confirmed"
-            if any(
-                color.category == "network"
-                and color.write_supported.value == "confirmed"
-                for color in data.colors
-            )
-            else "unsupported"
-        ),
-        "network_color_write_ready": any(
-            color.category == "network"
-            and color.write_ready
-            and not color.write_blocked
-            for color in data.colors
-        ),
-        "speed_color_read_supported": any(
-            color.category == "speed" and color.read_supported
-            for color in data.colors
-        ),
-        "speed_color_write_supported": (
-            "confirmed"
-            if any(
-                color.category == "speed"
-                and color.write_supported.value == "confirmed"
-                for color in data.colors
-            )
-            else "unsupported"
-        ),
-        "speed_color_write_ready": any(
-            color.category == "speed"
-            and color.write_ready
-            and not color.write_blocked
-            for color in data.colors
-        ),
+        **device_control_summary(data.devices),
+        **color_control_summary(data.colors),
         "color_metadata_status": data.color_metadata_status,
         "color_metadata_error": data.color_metadata_error,
         "last_successful_read": (
