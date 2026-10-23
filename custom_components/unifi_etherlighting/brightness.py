@@ -184,8 +184,6 @@ class VerifiedEtherlightingResult:
     error_code: str | None = None
 
 
-VerifiedBrightnessResult = VerifiedEtherlightingResult
-
 
 def _etherlighting_value(device: Mapping[str, Any], field: str) -> int | str:
     ether_lighting = device.get("ether_lighting")

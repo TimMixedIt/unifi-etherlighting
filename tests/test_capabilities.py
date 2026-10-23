@@ -19,7 +19,6 @@ from custom_components.unifi_etherlighting.api.models import (
 )
 from custom_components.unifi_etherlighting.compatibility import (
     COMPATIBILITY_PROFILE,
-    compatibility_reason,
     device_contract_mismatches,
     device_read_contract_is_supported,
     device_read_contract_mismatches,
@@ -145,26 +144,22 @@ def test_newer_network_major_is_gated_by_the_runtime_schema() -> None:
     for version in ("11.0.0", "11.2.5-beta.1", "12.0.0"):
         assert network_version_is_supported(version)
         assert runtime_contract_is_supported(version, device())
-        assert compatibility_reason(version, device()) == "compatible"
 
     changed = device()
     changed["config_network"].pop("gateway")
     assert not runtime_contract_is_supported("11.0.0", changed)
-    assert compatibility_reason("11.0.0", changed) == "device_write_contract_mismatch"
+    assert network_version_is_supported("11.0.0")
+    assert not device_write_contract_is_supported(changed)
 
 
 def test_incompatible_api_generation_or_schema_fails_closed() -> None:
     current = device()
     assert runtime_contract_is_supported("10.5.66", current)
-    assert compatibility_reason("10.5.66", current) == "compatible"
 
     for version in ("10.5.61", "9.9.9", "unknown"):
         assert not brightness_read_is_supported(version, current)
         assert not color_read_is_supported(version, current)
-        assert (
-            compatibility_reason(version, current)
-            == "unsupported_network_api_generation"
-        )
+        assert not runtime_contract_is_supported(version, current)
 
     missing_write_field = deepcopy(current)
     missing_write_field["config_network"].pop("gateway")

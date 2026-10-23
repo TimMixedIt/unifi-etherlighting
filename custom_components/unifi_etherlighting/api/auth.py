@@ -203,7 +203,3 @@ class UniFiAuthSession:
 
     def csrf_header(self) -> dict[str, str]:
         return {CSRF_HEADER_NAME: self._csrf_token} if self._csrf_token else {}
-
-    def get_csrf_header(self) -> dict[str, str]:
-        """Compatibility alias for the original diagnostic boundary."""
-        return self.csrf_header()

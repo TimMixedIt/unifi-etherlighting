@@ -290,14 +290,3 @@ def runtime_contract_is_supported(
     return network_version_is_supported(
         network_application_version
     ) and device_write_contract_is_supported(device)
-
-
-def compatibility_reason(network_application_version: object, device: object) -> str:
-    """Return an allowlisted compatibility reason without controller values."""
-    if not network_version_is_supported(network_application_version):
-        return "unsupported_network_api_generation"
-    if not device_identity_contract_is_supported(device):
-        return "device_identity_contract_mismatch"
-    if not device_write_contract_is_supported(device):
-        return "device_write_contract_mismatch"
-    return "compatible"

@@ -522,7 +522,7 @@ async def test_central_write_gate_stops_before_every_network_operation(
     devices = AsyncMock()
     payload_builder = AsyncMock()
     monkeypatch.setattr(
-        brightness_module, "build_brightness_write_payload", payload_builder
+        brightness_module, "build_etherlighting_write_payload", payload_builder
     )
     service = BrightnessService(auth, controller, devices)
 

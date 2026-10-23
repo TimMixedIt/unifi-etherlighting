@@ -66,14 +66,6 @@ class UniFiVersionSchemaError(UniFiSchemaError):
         self.reason = reason
 
 
-class CapabilityNotConfirmedError(UniFiEtherlightingError):
-    """A write was requested for a capability that is not production-confirmed."""
-
-
-class ReadPathNotConfirmedError(UniFiEtherlightingError):
-    """No capture-confirmed read endpoint exists for the requested operation."""
-
-
 class VerificationError(UniFiEtherlightingError):
     """Read-after-write verification did not preserve the expected state."""
 

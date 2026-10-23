@@ -3,16 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-
-try:  # Python 3.11+ (the Home Assistant target) provides StrEnum.
-    from enum import StrEnum
-except ImportError:  # pragma: no cover - enables local validation on older Python.
-    from enum import Enum
-
-    class StrEnum(str, Enum):
-        pass
-
-
+from enum import StrEnum
 from typing import Any
 
 from ..compatibility import (
@@ -71,8 +62,6 @@ class EndpointDefinition:
     path_template: str
     evidence: EvidenceLevel
     requires_csrf: bool
-    response_success_path: str | None
-    response_success_value: Any | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,8 +110,6 @@ CONFIRMED_LOGIN_ENDPOINT = EndpointDefinition(
     path_template="/api/auth/login",
     evidence=EvidenceLevel.CAPTURED,
     requires_csrf=False,
-    response_success_path=None,
-    response_success_value=None,
 )
 
 CONFIRMED_LOGOUT_ENDPOINT = EndpointDefinition(
@@ -131,8 +118,6 @@ CONFIRMED_LOGOUT_ENDPOINT = EndpointDefinition(
     path_template="/api/auth/logout",
     evidence=EvidenceLevel.CAPTURED,
     requires_csrf=False,
-    response_success_path=None,
-    response_success_value=None,
 )
 
 CONFIRMED_CONTROLLER_VERSION_ENDPOINT = EndpointDefinition(
@@ -141,8 +126,6 @@ CONFIRMED_CONTROLLER_VERSION_ENDPOINT = EndpointDefinition(
     path_template="/proxy/network/v2/api/info",
     evidence=EvidenceLevel.READ_VERIFIED,
     requires_csrf=False,
-    response_success_path="system.version",
-    response_success_value=None,
 )
 
 CONFIRMED_DEVICE_READ_ENDPOINT = EndpointDefinition(
@@ -151,8 +134,6 @@ CONFIRMED_DEVICE_READ_ENDPOINT = EndpointDefinition(
     path_template="/proxy/network/api/s/{site}/stat/device",
     evidence=EvidenceLevel.READ_VERIFIED,
     requires_csrf=False,
-    response_success_path="meta.rc",
-    response_success_value="ok",
 )
 
 CONFIRMED_DEVICE_WRITE_ENDPOINT = EndpointDefinition(
@@ -161,8 +142,6 @@ CONFIRMED_DEVICE_WRITE_ENDPOINT = EndpointDefinition(
     path_template="/proxy/network/api/s/{site}/rest/device/{device}",
     evidence=EvidenceLevel.WRITE_ACCEPTED,
     requires_csrf=True,
-    response_success_path="meta.rc",
-    response_success_value="ok",
 )
 
 CONFIRMED_ETHERLIGHTING_SETTINGS_READ_ENDPOINT = EndpointDefinition(
@@ -171,8 +150,6 @@ CONFIRMED_ETHERLIGHTING_SETTINGS_READ_ENDPOINT = EndpointDefinition(
     path_template="/proxy/network/api/s/{site}/get/setting",
     evidence=EvidenceLevel.READ_VERIFIED,
     requires_csrf=False,
-    response_success_path="meta.rc",
-    response_success_value="ok",
 )
 
 CONFIRMED_ETHERLIGHTING_SETTINGS_WRITE_ENDPOINT = EndpointDefinition(
@@ -181,8 +158,6 @@ CONFIRMED_ETHERLIGHTING_SETTINGS_WRITE_ENDPOINT = EndpointDefinition(
     path_template="/proxy/network/api/s/{site}/set/setting/ether_lighting",
     evidence=EvidenceLevel.WRITE_ACCEPTED,
     requires_csrf=True,
-    response_success_path="meta.rc",
-    response_success_value="ok",
 )
 
 CONFIRMED_NETWORK_CONFIGURATION_READ_ENDPOINT = EndpointDefinition(
@@ -191,8 +166,6 @@ CONFIRMED_NETWORK_CONFIGURATION_READ_ENDPOINT = EndpointDefinition(
     path_template="/proxy/network/api/s/{site}/rest/networkconf",
     evidence=EvidenceLevel.READ_VERIFIED,
     requires_csrf=False,
-    response_success_path="meta.rc",
-    response_success_value="ok",
 )
 
 
