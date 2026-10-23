@@ -46,6 +46,7 @@ def coordinator(device: DiagnosticDevice) -> SimpleNamespace:
         last_update_success=True,
         device=lambda device_id: device if device_id == "device_001" else None,
         async_request_refresh=AsyncMock(),
+        last_refresh_error=None,
         data=SimpleNamespace(),
     )
 

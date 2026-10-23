@@ -148,20 +148,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _remove_stale_controls(hass, entry)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
-    await async_sync_repairs(hass, entry, coordinator.data)
+    await async_sync_repairs(
+        hass, entry, coordinator.data, coordinator.last_refresh_error
+    )
 
-    def _sync_repairs_after_successful_refresh() -> None:
-        """Keep Repairs aligned when the live controller contract changes."""
-        if coordinator.last_update_success and coordinator.data is not None:
+    def _sync_repairs_after_refresh() -> None:
+        """Keep Repairs aligned with the live contract and refresh failures."""
+        if coordinator.data is not None:
             entry.async_create_task(
                 hass,
-                async_sync_repairs(hass, entry, coordinator.data),
+                async_sync_repairs(
+                    hass, entry, coordinator.data, coordinator.last_refresh_error
+                ),
                 f"{DOMAIN}_sync_repairs",
             )
 
-    entry.async_on_unload(
-        coordinator.async_add_listener(_sync_repairs_after_successful_refresh)
-    )
+    entry.async_on_unload(coordinator.async_add_listener(_sync_repairs_after_refresh))
     return True
 
 

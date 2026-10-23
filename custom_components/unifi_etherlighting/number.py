@@ -129,7 +129,12 @@ class EtherlightingBrightnessNumber(CoordinatorEntity, NumberEntity):
             ) from err
 
         await self.coordinator.async_request_refresh()
-        await async_sync_repairs(self.hass, self._entry, self.coordinator.data)
+        await async_sync_repairs(
+            self.hass,
+            self._entry,
+            self.coordinator.data,
+            self.coordinator.last_refresh_error,
+        )
         if result.outcome is not BrightnessWriteOutcome.APPLIED:
             raise HomeAssistantError(
                 f"Brightness write was not verified ({result.outcome.value})"

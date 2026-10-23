@@ -52,6 +52,7 @@ def _ready_number() -> EtherlightingBrightnessNumber:
         last_update_success=True,
         device=lambda device_id: device if device_id == "device_001" else None,
         async_request_refresh=AsyncMock(),
+        last_refresh_error=None,
         data=SimpleNamespace(),
     )
     return entity
@@ -105,6 +106,7 @@ async def test_read_only_number_never_calls_brightness_service() -> None:
         last_update_success=True,
         device=lambda device_id: read_only if device_id == "device_001" else None,
         async_request_refresh=AsyncMock(),
+        last_refresh_error=None,
         data=SimpleNamespace(),
     )
     brightness_service = AsyncMock()

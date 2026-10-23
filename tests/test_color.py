@@ -345,6 +345,7 @@ async def test_light_entity_uses_verified_color_service(monkeypatch) -> None:
         last_update_success=True,
         color=lambda category, key: color,
         async_request_refresh=AsyncMock(),
+        last_refresh_error=None,
         data=SimpleNamespace(),
     )
     service = SimpleNamespace(

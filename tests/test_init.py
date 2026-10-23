@@ -488,3 +488,76 @@ async def test_successful_coordinator_refresh_synchronizes_repairs(hass) -> None
         await hass.async_block_till_done()
         assert entry.runtime_data.coordinator.data.controller_status == "online"
         assert registry.async_get_issue(DOMAIN, issue_id) is None
+
+
+async def test_failed_coordinator_refresh_surfaces_schema_repair(hass) -> None:
+    """A schema error on a later poll must surface and clear as a Repair."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "host": "controller.invalid",
+            "port": 443,
+            "use_ssl": True,
+            "verify_ssl": True,
+            "username": "user",
+            "password": "secret",
+            "site": "site_001",
+            "device_ids": ["device_001"],
+        },
+        options={},
+        version=2,
+    )
+    entry.add_to_hass(hass)
+    device = json.loads(
+        (Path(__file__).parent / "fixtures/device_read_brightness_30.json").read_text()
+    )
+    settings = json.loads(
+        (Path(__file__).parent / "fixtures/etherlighting_settings_read.json").read_text()
+    )
+    networkconf = json.loads(
+        (Path(__file__).parent / "fixtures/networkconf_read.json").read_text()
+    )
+    parsed_settings = parse_etherlighting_settings_response(settings)
+    parsed_labels = tuple(
+        NetworkLabel(item["_id"], item["name"]) for item in networkconf["data"]
+    )
+    with (
+        patch(
+            "custom_components.unifi_etherlighting.async_create_clientsession",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "custom_components.unifi_etherlighting.api.adapters.unifi_os_controller.UniFiOsControllerAdapter.async_read_network_application_version",
+            new=AsyncMock(return_value="11.0.81"),
+        ),
+        patch(
+            "custom_components.unifi_etherlighting.api.adapters.unifi_os_device.UniFiOsDeviceAdapter.async_read_devices",
+            new=AsyncMock(return_value=(device,)),
+        ) as read_devices,
+        patch(
+            "custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting.UniFiOsEtherlightingSettingsAdapter.async_read_settings",
+            new=AsyncMock(return_value=parsed_settings),
+        ),
+        patch(
+            "custom_components.unifi_etherlighting.api.adapters.unifi_os_etherlighting.UniFiOsEtherlightingSettingsAdapter.async_read_network_labels",
+            new=AsyncMock(return_value=parsed_labels),
+        ),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        registry = ir.async_get(hass)
+        issue_id = f"{entry.entry_id}_api_schema_mismatch"
+        assert registry.async_get_issue(DOMAIN, issue_id) is None
+
+        read_devices.side_effect = UniFiSchemaError("changed")
+        await entry.runtime_data.coordinator.async_refresh()
+        await hass.async_block_till_done()
+        assert not entry.runtime_data.coordinator.last_update_success
+        assert registry.async_get_issue(DOMAIN, issue_id) is not None
+
+        read_devices.side_effect = None
+        await entry.runtime_data.coordinator.async_refresh()
+        await hass.async_block_till_done()
+        assert entry.runtime_data.coordinator.last_update_success
+        assert registry.async_get_issue(DOMAIN, issue_id) is None

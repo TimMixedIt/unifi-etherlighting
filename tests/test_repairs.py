@@ -335,3 +335,37 @@ async def test_write_repairs_track_only_indeterminate_results(hass) -> None:
         registry.async_get_issue(DOMAIN, f"{entry.entry_id}_write_blocked")
         is None
     )
+
+
+async def test_refresh_error_categories_drive_auth_and_schema_repairs(hass) -> None:
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={})
+    data = EtherlightingCoordinatorData(
+        controller_status="online",
+        controller_type="unifi_os",
+        network_application_version="10.5.62",
+        devices=(),
+        colors=(),
+        capabilities=current_capture_capabilities(),
+        last_successful_update=None,
+        last_verified_write=None,
+        last_error=None,
+        write_capability="ready",
+        write_block_reason=None,
+        missing_confirmed_fields=(),
+    )
+    registry = ir.async_get(hass)
+    auth_issue = f"{entry.entry_id}_authentication_failed"
+    schema_issue = f"{entry.entry_id}_api_schema_mismatch"
+
+    for category in ("authentication", "permission"):
+        await async_sync_repairs(hass, entry, data, category)
+        assert registry.async_get_issue(DOMAIN, auth_issue) is not None
+        assert registry.async_get_issue(DOMAIN, schema_issue) is None
+
+    await async_sync_repairs(hass, entry, data, "schema")
+    assert registry.async_get_issue(DOMAIN, auth_issue) is None
+    assert registry.async_get_issue(DOMAIN, schema_issue) is not None
+
+    await async_sync_repairs(hass, entry, data)
+    assert registry.async_get_issue(DOMAIN, auth_issue) is None
+    assert registry.async_get_issue(DOMAIN, schema_issue) is None

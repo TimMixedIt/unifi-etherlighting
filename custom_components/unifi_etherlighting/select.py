@@ -114,7 +114,12 @@ class EtherlightingModeSelect(CoordinatorEntity, SelectEntity):
             ) from err
 
         await self.coordinator.async_request_refresh()
-        await async_sync_repairs(self.hass, self._entry, self.coordinator.data)
+        await async_sync_repairs(
+            self.hass,
+            self._entry,
+            self.coordinator.data,
+            self.coordinator.last_refresh_error,
+        )
         if result.outcome is not BrightnessWriteOutcome.APPLIED:
             raise HomeAssistantError(
                 f"Etherlighting mode write was not verified ({result.outcome.value})"
