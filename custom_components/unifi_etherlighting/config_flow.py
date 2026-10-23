@@ -179,6 +179,16 @@ OPTIONS_SCHEMA = vol.Schema(
 )
 
 
+def _entry_connection_data(entry: config_entries.ConfigEntry) -> dict[str, Any]:
+    """Return entry data with the same TLS verification the runtime uses."""
+    return {
+        **entry.data,
+        CONF_VERIFY_SSL: entry.options.get(
+            CONF_VERIFY_SSL, entry.data[CONF_VERIFY_SSL]
+        ),
+    }
+
+
 def _reauth_schema(username: str) -> vol.Schema:
     """Return a credential-only schema without exposing the stored password."""
     return vol.Schema(
@@ -348,7 +358,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             try:
-                compatible = await self._async_validate_connection(dict(entry.data))
+                compatible = await self._async_validate_connection(
+                    _entry_connection_data(entry)
+                )
             except ValidationStageError as err:
                 category = _error_key_for_stage(err)
                 _log_stage_failure(err, category)
@@ -461,7 +473,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self.source == config_entries.SOURCE_RECONFIGURE:
             entry = self._get_reconfigure_entry()
             try:
-                live_compatible = await self._async_validate_connection(dict(entry.data))
+                live_compatible = await self._async_validate_connection(
+                    _entry_connection_data(entry)
+                )
             except ValidationStageError as err:
                 category = _error_key_for_stage(err)
                 _log_stage_failure(err, category)
@@ -513,7 +527,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             updated = {
-                **entry.data,
+                **_entry_connection_data(entry),
                 CONF_USERNAME: user_input.get(CONF_USERNAME, ""),
                 CONF_PASSWORD: user_input.get(CONF_PASSWORD, ""),
             }

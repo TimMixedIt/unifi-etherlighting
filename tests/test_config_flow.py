@@ -806,3 +806,55 @@ def test_mismatch_summary_sanitizes_models_and_bounds_output() -> None:
     summary = _read_contract_mismatch_summary(many)
     assert summary.count("M") == 4
     assert summary.endswith("+2 more")
+
+
+async def test_reconfigure_and_reauth_use_verify_ssl_option(hass) -> None:
+    """Validation must use the same TLS verification as the running entry."""
+    entry = MockConfigEntry(
+        version=2,
+        minor_version=1,
+        domain=DOMAIN,
+        title="UniFi Etherlighting",
+        data={**CONNECTION, "device_ids": ["device_001"]},
+        source=config_entries.SOURCE_USER,
+        options={"verify_ssl": False},
+        unique_id="controller.invalid:443",
+    )
+    entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.unifi_etherlighting.config_flow.ConfigFlow._async_validate_connection",
+        new=AsyncMock(return_value=(DEVICE,)),
+    ) as validate:
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={
+                "source": config_entries.SOURCE_RECONFIGURE,
+                "entry_id": entry.entry_id,
+            },
+            data=None,
+        )
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"device_ids": ["device_001"]}
+        )
+        assert result["reason"] == "reconfigure_successful"
+
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={
+                "source": config_entries.SOURCE_REAUTH,
+                "entry_id": entry.entry_id,
+            },
+            data=dict(entry.data),
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"username": "user", "password": "secret"}
+        )
+        assert result["reason"] == "reauth_successful"
+
+    assert validate.await_count == 3
+    assert all(
+        call.args[0]["verify_ssl"] is False for call in validate.await_args_list
+    )
+    assert entry.data["verify_ssl"] is True
