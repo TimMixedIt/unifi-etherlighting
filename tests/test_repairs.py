@@ -366,6 +366,19 @@ async def test_refresh_error_categories_drive_auth_and_schema_repairs(hass) -> N
     assert registry.async_get_issue(DOMAIN, auth_issue) is None
     assert registry.async_get_issue(DOMAIN, schema_issue) is not None
 
+    # Failures that settle neither condition leave both Repairs unchanged.
+    for category in ("transport_connection", "response", "unknown"):
+        await async_sync_repairs(hass, entry, data, category)
+        assert registry.async_get_issue(DOMAIN, schema_issue) is not None
+
+    # A credential failure says nothing about the API schema.
+    await async_sync_repairs(hass, entry, data, "authentication")
+    assert registry.async_get_issue(DOMAIN, auth_issue) is not None
+    assert registry.async_get_issue(DOMAIN, schema_issue) is not None
+
+    await async_sync_repairs(hass, entry, data, "transport_timeout")
+    assert registry.async_get_issue(DOMAIN, auth_issue) is not None
+
     await async_sync_repairs(hass, entry, data)
     assert registry.async_get_issue(DOMAIN, auth_issue) is None
     assert registry.async_get_issue(DOMAIN, schema_issue) is None
