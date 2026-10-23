@@ -20,7 +20,7 @@ from .api.adapters.unifi_os_etherlighting import (
 )
 from .api.auth import UniFiAuthSession
 from .api.client import UniFiApiClient, build_controller_base_url
-from .brightness import BrightnessService
+from .brightness import DeviceControlService
 from .color import EtherlightingColorService
 from .const import (
     CONF_DEVICE_IDS,
@@ -53,7 +53,7 @@ class RuntimeData:
     auth: UniFiAuthSession
     controller: UniFiOsControllerAdapter
     adapter: UniFiOsDeviceAdapter
-    brightness_service: BrightnessService
+    control_service: DeviceControlService
     color_settings: UniFiOsEtherlightingSettingsAdapter
     color_service: EtherlightingColorService
     controller_unique_id: str
@@ -115,7 +115,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     adapter = UniFiOsDeviceAdapter(client)
     color_settings = UniFiOsEtherlightingSettingsAdapter(client)
     write_lock = Lock()
-    brightness_service = BrightnessService(
+    control_service = DeviceControlService(
         auth, controller, adapter, write_lock=write_lock
     )
     color_service = EtherlightingColorService(
@@ -126,7 +126,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry,
         controller,
         adapter,
-        brightness_service,
+        control_service,
         color_settings,
         color_service,
     )
@@ -135,7 +135,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         auth=auth,
         controller=controller,
         adapter=adapter,
-        brightness_service=brightness_service,
+        control_service=control_service,
         color_settings=color_settings,
         color_service=color_service,
         controller_unique_id=entry.unique_id or entry.entry_id,

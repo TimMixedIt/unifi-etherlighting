@@ -146,7 +146,7 @@ async def test_setup_and_unload_never_write_controller(hass) -> None:
         assert len([item for item in entries if item.domain == "light"]) == 10
         runtime = entry.runtime_data
         assert (
-            runtime.brightness_service._write_lock
+            runtime.control_service._write_lock
             is runtime.color_service._write_lock
         )
         assert await hass.config_entries.async_unload(entry.entry_id)

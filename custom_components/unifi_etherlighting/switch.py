@@ -69,7 +69,7 @@ class EtherlightingBreathingSwitch(EtherlightingDeviceControl, SwitchEntity):
             self,
             self._entry,
             "Breathing Mode",
-            lambda: self._runtime.brightness_service.async_set_behavior(
+            lambda: self._runtime.control_service.async_set_behavior(
                 self._site, self._device_id, behavior
             ),
         )

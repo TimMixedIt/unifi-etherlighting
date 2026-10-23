@@ -165,7 +165,7 @@ def build_etherlighting_refresh_payload(
     )
 
 
-class BrightnessWriteOutcome(StrEnum):
+class WriteOutcome(StrEnum):
     """Outcome shared by all verified Etherlighting control writes."""
 
     APPLIED = "applied"
@@ -175,7 +175,7 @@ class BrightnessWriteOutcome(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class VerifiedEtherlightingResult:
-    outcome: BrightnessWriteOutcome
+    outcome: WriteOutcome
     field: str
     before: int | str
     requested: int | str
@@ -220,7 +220,7 @@ def _configuration_preserved(
     return True
 
 
-class BrightnessService:
+class DeviceControlService:
     """Write one confirmed field once, read it back, and fail closed."""
 
     def __init__(
@@ -267,16 +267,16 @@ class BrightnessService:
             preserved = False
 
         if preserved and observed == requested:
-            outcome = BrightnessWriteOutcome.APPLIED
+            outcome = WriteOutcome.APPLIED
             verified_at = datetime.now(UTC)
             self.last_verified_write = verified_at
             resolved_error_code = None
         elif preserved and observed == before:
-            outcome = BrightnessWriteOutcome.NOT_APPLIED
+            outcome = WriteOutcome.NOT_APPLIED
             verified_at = datetime.now(UTC)
             resolved_error_code = "write_not_applied"
         else:
-            outcome = BrightnessWriteOutcome.INDETERMINATE
+            outcome = WriteOutcome.INDETERMINATE
             verified_at = None
             self._blocked_devices.add(device_id)
             resolved_error_code = "write_verification_failed"
@@ -343,7 +343,7 @@ class BrightnessService:
             self.last_verified_write = verified_at
             self.last_error_code = None
             return VerifiedEtherlightingResult(
-                BrightnessWriteOutcome.APPLIED,
+                WriteOutcome.APPLIED,
                 field,
                 before,
                 requested,
@@ -400,7 +400,7 @@ class BrightnessService:
         self.last_verified_write = verified_at
         self.last_error_code = None
         return VerifiedEtherlightingResult(
-            BrightnessWriteOutcome.APPLIED,
+            WriteOutcome.APPLIED,
             field,
             before,
             requested,

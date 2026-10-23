@@ -10,7 +10,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .brightness import BrightnessWriteOutcome
+from .brightness import WriteOutcome
 from .const import (
     CONF_DEVICE_IDS,
     CONF_SITE,
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 
 class _VerifiedResult(Protocol):
-    outcome: BrightnessWriteOutcome
+    outcome: WriteOutcome
 
 
 def configured_device_ids(entry: ConfigEntry) -> list[str]:
@@ -72,7 +72,7 @@ async def async_finish_verified_write(
         entity.coordinator.data,
         entity.coordinator.last_refresh_error,
     )
-    if result.outcome is not BrightnessWriteOutcome.APPLIED:
+    if result.outcome is not WriteOutcome.APPLIED:
         raise HomeAssistantError(
             f"Etherlighting {label} write was not verified ({result.outcome.value})"
         )

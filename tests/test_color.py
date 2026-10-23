@@ -20,7 +20,7 @@ from custom_components.unifi_etherlighting.api.errors import (
     WriteCapabilityUnavailableError,
 )
 from custom_components.unifi_etherlighting import color as color_module
-from custom_components.unifi_etherlighting.brightness import BrightnessWriteOutcome
+from custom_components.unifi_etherlighting.brightness import WriteOutcome
 from custom_components.unifi_etherlighting.color import (
     EtherlightingColorService,
     _colors_equivalent,
@@ -177,7 +177,7 @@ async def test_color_service_writes_one_override_and_reads_it_back(dhcp, lcd) ->
         "site_001", "device_001", "speed", "FE", "FEC105"
     )
 
-    assert result.outcome is BrightnessWriteOutcome.APPLIED
+    assert result.outcome is WriteOutcome.APPLIED
     assert result.before == "FFC105"
     assert result.observed == "FEC105"
     payload = devices.async_write_device.await_args.args[2]
@@ -220,7 +220,7 @@ async def test_controller_one_step_color_normalization_is_verified() -> None:
         "site_001", "device_001", "speed", "FE", "FEC105"
     )
 
-    assert result.outcome is BrightnessWriteOutcome.APPLIED
+    assert result.outcome is WriteOutcome.APPLIED
     assert result.requested == "FEC105"
     assert result.observed == "FFC105"
     assert result.error_code is None
@@ -252,7 +252,7 @@ async def test_larger_color_normalization_is_not_applied() -> None:
         "site_001", "device_001", "speed", "FE", "FDC105"
     )
 
-    assert result.outcome is BrightnessWriteOutcome.NOT_APPLIED
+    assert result.outcome is WriteOutcome.NOT_APPLIED
     assert result.observed == "FFC105"
     assert result.error_code == "write_not_applied"
     assert service.last_error_code == "write_not_applied"
@@ -311,7 +311,7 @@ async def test_indeterminate_color_result_blocks_site() -> None:
         "site_001", "device_001", "speed", "FE", "FEC105"
     )
 
-    assert result.outcome is BrightnessWriteOutcome.INDETERMINATE
+    assert result.outcome is WriteOutcome.INDETERMINATE
     assert result.error_code == "write_verification_failed"
     assert service.last_error_code == "write_verification_failed"
     assert service.is_write_blocked("site_001")
@@ -352,7 +352,7 @@ async def test_light_entity_uses_verified_color_service(monkeypatch) -> None:
     )
     service = SimpleNamespace(
         async_set_color=AsyncMock(
-            return_value=SimpleNamespace(outcome=BrightnessWriteOutcome.APPLIED)
+            return_value=SimpleNamespace(outcome=WriteOutcome.APPLIED)
         )
     )
     entity = object.__new__(EtherlightingColorLight)

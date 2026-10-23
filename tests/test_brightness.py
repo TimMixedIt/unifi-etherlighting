@@ -19,8 +19,8 @@ from custom_components.unifi_etherlighting.api.errors import (
     WriteCapabilityUnavailableError,
 )
 from custom_components.unifi_etherlighting.brightness import (
-    BrightnessService,
-    BrightnessWriteOutcome,
+    DeviceControlService,
+    WriteOutcome,
     build_behavior_write_payload,
     build_brightness_write_payload,
     build_etherlighting_write_payload,
@@ -141,12 +141,12 @@ def test_reported_shapes_write_read_back_and_restore(dhcp, lcd):
     before = variant_device(dhcp=dhcp, lcd=lcd)
     after = variant_device(dhcp=dhcp, lcd=lcd, brightness=31)
     devices = FakeDevices([before, after, after, before])
-    service = BrightnessService(FakeAuth(), FakeController("11.0.81"), devices)
+    service = DeviceControlService(FakeAuth(), FakeController("11.0.81"), devices)
     result = asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
-    assert result.outcome is BrightnessWriteOutcome.APPLIED
+    assert result.outcome is WriteOutcome.APPLIED
     devices.response_brightness = 30
     restored = asyncio.run(service.async_set_brightness("site_001", "device_001", 30))
-    assert restored.outcome is BrightnessWriteOutcome.APPLIED
+    assert restored.outcome is WriteOutcome.APPLIED
     assert len(devices.writes) == 2
 
 
@@ -163,9 +163,9 @@ def test_companion_state_change_blocks_further_writes(field):
         after[field] = True if field == "lcm_night_mode_enabled" else "changed"
     assert not _device_preserved(before, after)
     devices = FakeDevices([before, after, after])
-    service = BrightnessService(FakeAuth(), FakeController(), devices)
+    service = DeviceControlService(FakeAuth(), FakeController(), devices)
     result = asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
-    assert result.outcome is BrightnessWriteOutcome.INDETERMINATE
+    assert result.outcome is WriteOutcome.INDETERMINATE
     assert service.is_write_blocked("device_001")
     assert len(devices.writes) == 1
 
@@ -341,9 +341,9 @@ def test_control_payload_rejects_unconfirmed_values_and_multiple_changes() -> No
 def test_successful_write_is_sent_once_and_read_back(monkeypatch) -> None:
     monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
     devices = FakeDevices([device(30), device(31)])
-    service = BrightnessService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
+    service = DeviceControlService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
     result = asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
-    assert result.outcome is BrightnessWriteOutcome.APPLIED
+    assert result.outcome is WriteOutcome.APPLIED
     assert result.observed == 31
     assert len(devices.writes) == 1
     assert devices.writes[0]["ether_lighting"]["brightness"] == 31
@@ -367,11 +367,11 @@ async def test_behavior_and_mode_write_once_and_read_back(
     before["ether_lighting"][field] = before_value
     after["ether_lighting"][field] = target_value
     devices = FakeDevices([before, after], response_brightness=30)
-    service = BrightnessService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
+    service = DeviceControlService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
 
     result = await getattr(service, method)("site_001", "device_001", target_value)
 
-    assert result.outcome is BrightnessWriteOutcome.APPLIED
+    assert result.outcome is WriteOutcome.APPLIED
     assert result.field == field
     assert result.observed == target_value
     assert len(devices.writes) == 1
@@ -387,9 +387,9 @@ async def test_behavior_and_mode_write_once_and_read_back(
 async def test_noop_control_does_not_write(monkeypatch) -> None:
     monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
     devices = FakeDevices([complete_write_source()])
-    service = BrightnessService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
+    service = DeviceControlService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
     result = await service.async_set_mode("site_001", "device_001", "network")
-    assert result.outcome is BrightnessWriteOutcome.APPLIED
+    assert result.outcome is WriteOutcome.APPLIED
     assert devices.writes == []
 
 
@@ -398,7 +398,7 @@ async def test_concurrent_controls_are_serialized_without_lost_updates(
 ) -> None:
     monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
     devices = ConcurrentDevices()
-    service = BrightnessService(
+    service = DeviceControlService(
         FakeAuth(),
         FakeController(),
         devices,  # type: ignore[arg-type]
@@ -409,8 +409,8 @@ async def test_concurrent_controls_are_serialized_without_lost_updates(
         service.async_set_mode("site_001", "device_001", "speed"),
     )
 
-    assert brightness.outcome is BrightnessWriteOutcome.APPLIED
-    assert mode.outcome is BrightnessWriteOutcome.APPLIED
+    assert brightness.outcome is WriteOutcome.APPLIED
+    assert mode.outcome is WriteOutcome.APPLIED
     assert devices.max_active_writes == 1
     assert devices.state["ether_lighting"]["brightness"] == 31
     assert devices.state["ether_lighting"]["mode"] == "speed"
@@ -419,7 +419,7 @@ async def test_concurrent_controls_are_serialized_without_lost_updates(
 def test_older_network_api_generation_blocks_before_write(monkeypatch) -> None:
     monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
     devices = FakeDevices([complete_write_source(30)])
-    service = BrightnessService(
+    service = DeviceControlService(
         FakeAuth(),
         FakeController("10.5.61"),
         devices,  # type: ignore[arg-type]
@@ -438,7 +438,7 @@ def test_incomplete_device_write_contract_blocks_noop_and_write(
     read_only = complete_write_source(30)
     read_only["ether_lighting"].pop("led_mode")
     devices = FakeDevices([read_only])
-    service = BrightnessService(
+    service = DeviceControlService(
         FakeAuth(),
         FakeController("11.0.81"),
         devices,  # type: ignore[arg-type]
@@ -457,7 +457,7 @@ def test_patch_update_uses_same_verified_write_contract(monkeypatch) -> None:
         [complete_write_source(30), complete_write_source(31)],
         response_brightness=31,
     )
-    service = BrightnessService(
+    service = DeviceControlService(
         FakeAuth(),
         FakeController("10.5.66"),
         devices,  # type: ignore[arg-type]
@@ -465,7 +465,7 @@ def test_patch_update_uses_same_verified_write_contract(monkeypatch) -> None:
 
     result = asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
 
-    assert result.outcome is BrightnessWriteOutcome.APPLIED
+    assert result.outcome is WriteOutcome.APPLIED
     assert len(devices.writes) == 1
 
 
@@ -475,9 +475,9 @@ def test_timeout_is_not_retried_and_is_classified_by_read(monkeypatch) -> None:
         [complete_write_source(30), complete_write_source(31)],
         write_error=UniFiTransportError("timeout", request_may_have_been_sent=True),
     )
-    service = BrightnessService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
+    service = DeviceControlService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
     result = asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
-    assert result.outcome is BrightnessWriteOutcome.APPLIED
+    assert result.outcome is WriteOutcome.APPLIED
     assert result.error_code is None
     assert service.last_error_code is None
     assert len(devices.writes) == 1
@@ -491,9 +491,9 @@ def test_unchanged_state_is_not_applied_and_mixed_state_blocks_writes(
         [complete_write_source(30), complete_write_source(30)],
         write_error=UniFiTransportError("timeout", request_may_have_been_sent=True),
     )
-    service = BrightnessService(FakeAuth(), FakeController(), unchanged)  # type: ignore[arg-type]
+    service = DeviceControlService(FakeAuth(), FakeController(), unchanged)  # type: ignore[arg-type]
     result = asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
-    assert result.outcome is BrightnessWriteOutcome.NOT_APPLIED
+    assert result.outcome is WriteOutcome.NOT_APPLIED
     assert result.error_code == "write_not_applied"
     assert service.last_error_code == "write_not_applied"
 
@@ -503,9 +503,9 @@ def test_unchanged_state_is_not_applied_and_mixed_state_blocks_writes(
         [complete_write_source(30), mixed],
         write_error=UniFiTransportError("timeout", request_may_have_been_sent=True),
     )
-    blocked = BrightnessService(FakeAuth(), FakeController(), uncertain)  # type: ignore[arg-type]
+    blocked = DeviceControlService(FakeAuth(), FakeController(), uncertain)  # type: ignore[arg-type]
     result = asyncio.run(blocked.async_set_brightness("site_001", "device_001", 31))
-    assert result.outcome is BrightnessWriteOutcome.INDETERMINATE
+    assert result.outcome is WriteOutcome.INDETERMINATE
     assert result.error_code == "write_verification_failed"
     assert blocked.last_error_code == "write_verification_failed"
     with pytest.raises(WriteBlockedError):
@@ -524,7 +524,7 @@ async def test_central_write_gate_stops_before_every_network_operation(
     monkeypatch.setattr(
         brightness_module, "build_etherlighting_write_payload", payload_builder
     )
-    service = BrightnessService(auth, controller, devices)
+    service = DeviceControlService(auth, controller, devices)
 
     with pytest.raises(WriteCapabilityUnavailableError) as caught:
         await service.async_set_brightness("site_001", "device_001", 31)
@@ -578,11 +578,11 @@ class VanishingDevices(FakeDevices):
 def test_missing_device_after_write_is_indeterminate_and_blocks(monkeypatch):
     monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
     devices = VanishingDevices([complete_write_source(30)])
-    service = BrightnessService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
+    service = DeviceControlService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
 
     result = asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
 
-    assert result.outcome is BrightnessWriteOutcome.INDETERMINATE
+    assert result.outcome is WriteOutcome.INDETERMINATE
     assert service.last_error_code == "write_verification_failed"
     assert service.is_write_blocked("device_001")
     assert len(devices.writes) == 1

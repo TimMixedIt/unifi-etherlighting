@@ -34,7 +34,7 @@ from .api.models import (
     color_read_is_supported,
     mode_capability_status,
 )
-from .brightness import BrightnessService
+from .brightness import DeviceControlService
 from .color import EtherlightingColorService
 from .compatibility import (
     BEHAVIOR_VALUES,
@@ -170,7 +170,7 @@ class EtherlightingDataUpdateCoordinator(
         entry: ConfigEntry,
         controller: UniFiOsControllerAdapter,
         devices: UniFiOsDeviceAdapter,
-        brightness_service: BrightnessService,
+        control_service: DeviceControlService,
         color_settings: UniFiOsEtherlightingSettingsAdapter,
         color_service: EtherlightingColorService,
     ) -> None:
@@ -187,7 +187,7 @@ class EtherlightingDataUpdateCoordinator(
         self._entry = entry
         self._controller = controller
         self._devices = devices
-        self._brightness_service = brightness_service
+        self._control_service = control_service
         self._color_settings = color_settings
         self._color_service = color_service
         self._last_refresh_error: str | None = None
@@ -246,7 +246,7 @@ class EtherlightingDataUpdateCoordinator(
                     mode_read_supported=mode_capability.read_supported,
                     mode_write_supported=mode_capability.write_supported,
                     mode_write_ready=mode_capability.write_ready,
-                    write_blocked=self._brightness_service.is_write_blocked(
+                    write_blocked=self._control_service.is_write_blocked(
                         str(device["_id"])
                     ),
                     read_contract_mismatches=device_read_contract_mismatches(device),
@@ -384,7 +384,7 @@ class EtherlightingDataUpdateCoordinator(
                 (
                     value
                     for value in (
-                        self._brightness_service.last_verified_write,
+                        self._control_service.last_verified_write,
                         self._color_service.last_verified_write,
                     )
                     if value is not None
@@ -393,7 +393,7 @@ class EtherlightingDataUpdateCoordinator(
             ),
             last_error=(
                 self._color_service.last_error_code
-                or self._brightness_service.last_error_code
+                or self._control_service.last_error_code
             ),
             write_capability=WRITE_CAPABILITY_STATE,
             write_block_reason=ACTIVE_WRITE_BLOCK_REASON,

@@ -28,7 +28,7 @@ from .api.errors import (
 )
 from .api.models import color_read_is_supported
 from .brightness import (
-    BrightnessWriteOutcome,
+    WriteOutcome,
     build_etherlighting_refresh_payload,
 )
 from .compatibility import (
@@ -46,7 +46,7 @@ _MAX_NORMALIZED_TOTAL_DELTA = 1
 class VerifiedColorResult:
     """Result of a site-color write and independent read-back."""
 
-    outcome: BrightnessWriteOutcome
+    outcome: WriteOutcome
     category: str
     key: str
     before: str
@@ -217,16 +217,16 @@ class EtherlightingColorService:
             and observed is not None
             and _colors_equivalent(requested, observed)
         ):
-            outcome = BrightnessWriteOutcome.APPLIED
+            outcome = WriteOutcome.APPLIED
             verified_at = datetime.now(UTC)
             self.last_verified_write = verified_at
             resolved_error_code = None
         elif preserved and observed == before:
-            outcome = BrightnessWriteOutcome.NOT_APPLIED
+            outcome = WriteOutcome.NOT_APPLIED
             verified_at = datetime.now(UTC)
             resolved_error_code = "write_not_applied"
         else:
-            outcome = BrightnessWriteOutcome.INDETERMINATE
+            outcome = WriteOutcome.INDETERMINATE
             verified_at = None
             self._blocked_sites.add(site_id)
             resolved_error_code = "write_verification_failed"
@@ -287,7 +287,7 @@ class EtherlightingColorService:
             self.last_verified_write = verified_at
             self.last_error_code = None
             return VerifiedColorResult(
-                BrightnessWriteOutcome.APPLIED,
+                WriteOutcome.APPLIED,
                 category,
                 key,
                 before,
@@ -385,7 +385,7 @@ class EtherlightingColorService:
         self.last_verified_write = verified_at
         self.last_error_code = None
         return VerifiedColorResult(
-            BrightnessWriteOutcome.APPLIED,
+            WriteOutcome.APPLIED,
             category,
             key,
             before,

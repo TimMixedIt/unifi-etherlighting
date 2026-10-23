@@ -71,7 +71,7 @@ class EtherlightingModeSelect(EtherlightingDeviceControl, SelectEntity):
             self,
             self._entry,
             "mode",
-            lambda: self._runtime.brightness_service.async_set_mode(
+            lambda: self._runtime.control_service.async_set_mode(
                 self._site, self._device_id, option
             ),
         )

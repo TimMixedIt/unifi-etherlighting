@@ -12,7 +12,7 @@ from custom_components.unifi_etherlighting import select as select_module
 from custom_components.unifi_etherlighting import switch as switch_module
 from custom_components.unifi_etherlighting import entity as entity_module
 from custom_components.unifi_etherlighting.api.models import CapabilityState
-from custom_components.unifi_etherlighting.brightness import BrightnessWriteOutcome
+from custom_components.unifi_etherlighting.brightness import WriteOutcome
 from custom_components.unifi_etherlighting.const import CONF_SITE, DOMAIN
 from custom_components.unifi_etherlighting.coordinator import DiagnosticDevice
 from custom_components.unifi_etherlighting.select import EtherlightingModeSelect
@@ -89,9 +89,9 @@ async def test_switch_uses_verified_behavior_service(
     entity.coordinator = coordinator(ready_device())
     service = AsyncMock()
     service.async_set_behavior.return_value = SimpleNamespace(
-        outcome=BrightnessWriteOutcome.APPLIED
+        outcome=WriteOutcome.APPLIED
     )
-    entity._runtime = SimpleNamespace(brightness_service=service)
+    entity._runtime = SimpleNamespace(control_service=service)
     entity._entry = SimpleNamespace(data={CONF_SITE: "site_001"})
     entity.hass = object()
     sync_repairs = AsyncMock()
@@ -112,9 +112,9 @@ async def test_select_uses_verified_mode_service(monkeypatch) -> None:
     entity.coordinator = coordinator(ready_device())
     service = AsyncMock()
     service.async_set_mode.return_value = SimpleNamespace(
-        outcome=BrightnessWriteOutcome.APPLIED
+        outcome=WriteOutcome.APPLIED
     )
-    entity._runtime = SimpleNamespace(brightness_service=service)
+    entity._runtime = SimpleNamespace(control_service=service)
     entity._entry = SimpleNamespace(data={CONF_SITE: "site_001"})
     entity.hass = object()
     sync_repairs = AsyncMock()
@@ -140,7 +140,7 @@ async def test_read_only_switch_never_calls_behavior_service() -> None:
         )
     )
     service = AsyncMock()
-    entity._runtime = SimpleNamespace(brightness_service=service)
+    entity._runtime = SimpleNamespace(control_service=service)
 
     assert entity.available
     with pytest.raises(HomeAssistantError):
@@ -161,7 +161,7 @@ async def test_read_only_select_never_calls_mode_service() -> None:
         )
     )
     service = AsyncMock()
-    entity._runtime = SimpleNamespace(brightness_service=service)
+    entity._runtime = SimpleNamespace(control_service=service)
 
     assert entity.available
     with pytest.raises(HomeAssistantError):
@@ -173,10 +173,10 @@ async def test_read_only_select_never_calls_mode_service() -> None:
 
 async def test_select_rejects_unconfirmed_option_before_service_call() -> None:
     entity = object.__new__(EtherlightingModeSelect)
-    entity._runtime = SimpleNamespace(brightness_service=AsyncMock())
+    entity._runtime = SimpleNamespace(control_service=AsyncMock())
     with pytest.raises(HomeAssistantError):
         await entity.async_select_option("color")
-    entity._runtime.brightness_service.async_set_mode.assert_not_awaited()
+    entity._runtime.control_service.async_set_mode.assert_not_awaited()
 
 
 async def test_unsupported_device_creates_unavailable_controls_for_configured_id(hass) -> None:

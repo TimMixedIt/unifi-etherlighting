@@ -87,7 +87,7 @@ class EtherlightingBrightnessNumber(EtherlightingDeviceControl, NumberEntity):
             self,
             self._entry,
             "brightness",
-            lambda: self._runtime.brightness_service.async_set_brightness(
+            lambda: self._runtime.control_service.async_set_brightness(
                 self._site, self._device_id, target
             ),
         )
