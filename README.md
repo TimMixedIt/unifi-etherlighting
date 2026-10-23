@@ -66,6 +66,13 @@ on preserved LCD/network companion values could make previously writable
 switches read-only. Complete companion groups use the established contract
 again; sparse DHCP and LCD-free support and independent read-back checks remain.
 
+0.5.12 closes several fail-closed gaps: a failed read-back after a Device write
+now blocks further writes to that switch, the authentication and API-schema
+Repairs appear (and stay in step across consecutive failed refreshes),
+reconfigure and reauth honor the TLS verification option, and the central
+write gate also stops color writes. Control error messages are unified;
+entities, unique IDs and the write contract are unchanged.
+
 ## Write safety
 
 Before every Device write the integration:
