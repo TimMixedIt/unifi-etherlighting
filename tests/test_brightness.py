@@ -560,6 +560,6 @@ def test_sparse_static_network_remains_blocked():
     sparse = variant_device(dhcp=True, lcd=False)
     sparse["config_network"]["type"] = "static"
     assert not device_write_contract_is_supported(sparse)
-    assert device_contract_mismatches(sparse)
+    assert "config_network.type" in device_contract_mismatches(sparse)
     with pytest.raises(VerificationError):
         build_brightness_write_payload(sparse, 31)
