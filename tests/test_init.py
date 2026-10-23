@@ -11,7 +11,11 @@ from homeassistant.helpers import issue_registry as ir
 
 from custom_components.unifi_etherlighting.const import DOMAIN
 from custom_components.unifi_etherlighting import _remove_stale_controls
-from custom_components.unifi_etherlighting.api.errors import UniFiSchemaError
+from custom_components.unifi_etherlighting.api.errors import (
+    UniFiPermissionError,
+    UniFiSchemaError,
+    UniFiTransportError,
+)
 from custom_components.unifi_etherlighting.diagnostics import (
     async_get_config_entry_diagnostics,
 )
@@ -556,8 +560,26 @@ async def test_failed_coordinator_refresh_surfaces_schema_repair(hass) -> None:
         assert not entry.runtime_data.coordinator.last_update_success
         assert registry.async_get_issue(DOMAIN, issue_id) is not None
 
+        # A different failure right after a failure still reaches Repairs.
+        auth_issue_id = f"{entry.entry_id}_authentication_failed"
+        read_devices.side_effect = UniFiPermissionError("denied")
+        await entry.runtime_data.coordinator.async_refresh()
+        await hass.async_block_till_done()
+        assert registry.async_get_issue(DOMAIN, auth_issue_id) is not None
+        assert registry.async_get_issue(DOMAIN, issue_id) is not None
+
+        # An unreachable controller settles neither condition.
+        read_devices.side_effect = UniFiTransportError(
+            "unreachable", request_may_have_been_sent=False
+        )
+        await entry.runtime_data.coordinator.async_refresh()
+        await hass.async_block_till_done()
+        assert registry.async_get_issue(DOMAIN, auth_issue_id) is not None
+        assert registry.async_get_issue(DOMAIN, issue_id) is not None
+
         read_devices.side_effect = None
         await entry.runtime_data.coordinator.async_refresh()
         await hass.async_block_till_done()
         assert entry.runtime_data.coordinator.last_update_success
         assert registry.async_get_issue(DOMAIN, issue_id) is None
+        assert registry.async_get_issue(DOMAIN, auth_issue_id) is None

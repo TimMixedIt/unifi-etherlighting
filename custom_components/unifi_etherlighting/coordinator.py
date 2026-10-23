@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 import logging
@@ -9,7 +10,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api.adapters.unifi_os_controller import UniFiOsControllerAdapter
@@ -231,16 +232,42 @@ class EtherlightingDataUpdateCoordinator(
         self._color_settings = color_settings
         self._color_service = color_service
         self._last_refresh_error: str | None = None
+        self._refresh_failure_listeners: list[Callable[[], None]] = []
 
     @property
     def last_refresh_error(self) -> str | None:
         """Return an allowlisted category for the most recent failed refresh."""
         return self._last_refresh_error
 
+    @callback
+    def async_add_refresh_failure_listener(
+        self, failure_callback: Callable[[], None]
+    ) -> CALLBACK_TYPE:
+        """Call back after every failed refresh, not only after a state change.
+
+        Coordinator listeners are skipped when a failed refresh follows another
+        failed one, so a change of failure category would never reach Repairs.
+        """
+        self._refresh_failure_listeners.append(failure_callback)
+
+        @callback
+        def remove_listener() -> None:
+            self._refresh_failure_listeners.remove(failure_callback)
+
+        return remove_listener
+
     async def _async_update_data(self) -> EtherlightingCoordinatorData:
+        self._last_refresh_error = None
+        try:
+            return await self._async_read_data()
+        except (ConfigEntryAuthFailed, UpdateFailed):
+            for failure_callback in tuple(self._refresh_failure_listeners):
+                failure_callback()
+            raise
+
+    async def _async_read_data(self) -> EtherlightingCoordinatorData:
         site = self._entry.data[CONF_SITE]
         selected_ids = tuple(self._entry.data[CONF_DEVICE_IDS])
-        self._last_refresh_error = None
         try:
             network_version = (
                 await self._controller.async_read_network_application_version()

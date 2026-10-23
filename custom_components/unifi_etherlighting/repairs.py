@@ -18,6 +18,13 @@ from .const import (
     WRITE_CAPABILITY_BLOCKED_STATE,
 )
 
+# Refresh error categories that settle whether the credentials work, and
+# whether the API schema matched. A transport or other failure settles
+# neither, so those Repairs keep their last known state instead of clearing.
+_AUTH_ERRORS = frozenset({"authentication", "permission"})
+_AUTH_SETTLING_ERRORS = _AUTH_ERRORS | {"schema"}
+_SCHEMA_SETTLING_ERRORS = frozenset({"schema"})
+
 
 def _sync_issue(
     hass: HomeAssistant,
@@ -111,13 +118,14 @@ async def async_sync_repairs(
         "color_metadata_unavailable",
     )
     error = data.last_error or ""
-    _sync_issue(
-        hass,
-        entry,
-        "authentication_failed",
-        refresh_error in {"authentication", "permission"},
-        "authentication_failed",
-    )
+    if refresh_error is None or refresh_error in _AUTH_SETTLING_ERRORS:
+        _sync_issue(
+            hass,
+            entry,
+            "authentication_failed",
+            refresh_error in _AUTH_ERRORS,
+            "authentication_failed",
+        )
     _sync_issue(
         hass,
         entry,
@@ -125,13 +133,14 @@ async def async_sync_repairs(
         error == "write_verification_failed",
         "write_unverified",
     )
-    _sync_issue(
-        hass,
-        entry,
-        "api_schema_mismatch",
-        refresh_error == "schema",
-        "api_schema_mismatch",
-    )
+    if refresh_error is None or refresh_error in _SCHEMA_SETTLING_ERRORS:
+        _sync_issue(
+            hass,
+            entry,
+            "api_schema_mismatch",
+            refresh_error == "schema",
+            "api_schema_mismatch",
+        )
     _sync_issue(
         hass,
         entry,

@@ -160,7 +160,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 f"{DOMAIN}_sync_repairs",
             )
 
-    entry.async_on_unload(coordinator.async_add_listener(_sync_repairs_after_refresh))
+    def _sync_repairs_after_successful_refresh() -> None:
+        # Failed refreshes are covered by the failure listener below, which
+        # also fires when one failure follows another.
+        if coordinator.last_update_success:
+            _sync_repairs_after_refresh()
+
+    entry.async_on_unload(
+        coordinator.async_add_listener(_sync_repairs_after_successful_refresh)
+    )
+    entry.async_on_unload(
+        coordinator.async_add_refresh_failure_listener(_sync_repairs_after_refresh)
+    )
     return True
 
 
