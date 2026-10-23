@@ -11,6 +11,7 @@ import pytest
 
 from custom_components.unifi_etherlighting import brightness as brightness_module
 from custom_components.unifi_etherlighting.api.errors import (
+    DeviceNotFoundError,
     UniFiTransportError,
     UnsupportedCompatibilityError,
     VerificationError,
@@ -563,3 +564,25 @@ def test_sparse_static_network_remains_blocked():
     assert "config_network.type" in device_contract_mismatches(sparse)
     with pytest.raises(VerificationError):
         build_brightness_write_payload(sparse, 31)
+
+
+class VanishingDevices(FakeDevices):
+    """Lose the Device from the read response right after the PUT."""
+
+    async def async_read_device(self, site: str, device_id: str) -> dict[str, Any]:
+        if self.writes:
+            raise DeviceNotFoundError("Selected Device was not found")
+        return await super().async_read_device(site, device_id)
+
+
+def test_missing_device_after_write_is_indeterminate_and_blocks(monkeypatch):
+    monkeypatch.setattr(brightness_module, "WRITE_CAPABILITY_ENABLED", True)
+    devices = VanishingDevices([complete_write_source(30)])
+    service = BrightnessService(FakeAuth(), FakeController(), devices)  # type: ignore[arg-type]
+
+    result = asyncio.run(service.async_set_brightness("site_001", "device_001", 31))
+
+    assert result.outcome is BrightnessWriteOutcome.INDETERMINATE
+    assert service.last_error_code == "write_verification_failed"
+    assert service.is_write_blocked("device_001")
+    assert len(devices.writes) == 1

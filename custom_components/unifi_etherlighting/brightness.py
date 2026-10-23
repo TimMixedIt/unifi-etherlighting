@@ -18,8 +18,8 @@ from .api.adapters.unifi_os_device import (
 from .api.auth import UniFiAuthSession
 from .api.errors import (
     UniFiAuthenticationError,
+    UniFiEtherlightingError,
     UniFiPermissionError,
-    UniFiResponseError,
     UnsupportedCompatibilityError,
     VerificationError,
     WriteBlockedError,
@@ -397,7 +397,9 @@ class BrightnessService:
                 requested,
                 reauthenticate=True,
             )
-        except (UniFiResponseError, VerificationError):
+        except UniFiEtherlightingError:
+            # Includes transport, schema and DeviceNotFound errors after the
+            # PUT: the write may have reached the controller, so classify it.
             return await self._classify_after_failure(
                 site,
                 device_id,
