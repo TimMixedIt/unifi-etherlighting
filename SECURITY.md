@@ -17,4 +17,5 @@ Include only:
 ## Supported versions
 
 Security fixes are applied to the latest published release. Users should update
-through HACS and restart Home Assistant after installation.
+through the Home Assistant Marketplace (formerly HACS) and restart Home
+Assistant after installation.
