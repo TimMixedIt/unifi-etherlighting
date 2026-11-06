@@ -5,7 +5,8 @@ Thank you for helping improve UniFi Etherlighting.
 ## Before opening an issue
 
 - Install the latest release.
-- Restart Home Assistant after updating through HACS.
+- Restart Home Assistant after updating through the Home Assistant
+  Marketplace (formerly HACS).
 - Download the integration diagnostics.
 - Check whether the issue is a credential, permission, unsupported API
   generation or schema-contract problem.
