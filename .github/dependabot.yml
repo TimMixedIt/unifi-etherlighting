@@ -4,7 +4,16 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      # init and analyze must run the same CodeQL version; update them together.
+      codeql-action:
+        patterns:
+          - "github/codeql-action/*"
   - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # pytest is pinned exactly by pytest-homeassistant-custom-component;
+      # raising our lower bound only produces unresolvable installs.
+      - dependency-name: pytest
