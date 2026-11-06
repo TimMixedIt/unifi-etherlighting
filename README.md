@@ -18,8 +18,8 @@ verified device captures all help improve the integration. If you would like to
 contribute, get in touch through an issue or a pull request. We are asking for
 your help and experience, not money or donations.
 
-Local, HACS-compatible Home Assistant integration for verified UniFi
-Etherlighting controls. It supports:
+Local Home Assistant integration for verified UniFi Etherlighting controls,
+installable through the Home Assistant Marketplace (formerly HACS). It supports:
 
 - Brightness as a `number` entity.
 - Breathing mode as a `switch` entity.
@@ -94,15 +94,30 @@ affected Device or Site.
 
 ## Installation
 
-### HACS custom repository
+### Home Assistant Marketplace (Home Assistant 2026.11 and newer)
+
+Since Home Assistant 2026.11, HACS is built into Home Assistant as the
+**Home Assistant Marketplace**. A separate HACS installation is no longer
+needed or supported. Existing HACS installs, including this repository as a
+custom repository, are migrated automatically on first startup.
+
+1. Open the Marketplace in Home Assistant.
+2. Add `https://github.com/TimMixedIt/unifi-etherlighting` as a custom
+   repository of type **Integration**.
+3. Install the latest release.
+4. Restart Home Assistant.
+5. Go to **Settings → Devices & services → Add integration**.
+6. Select **UniFi Etherlighting**.
+
+Background update checks for custom repositories require a GitHub account
+connected to the Marketplace.
+
+### HACS (Home Assistant before 2026.11)
 
 [![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=TimMixedIt&repository=unifi-etherlighting&category=integration)
 
-1. Add this repository to HACS as an Integration repository.
-2. Install the latest release.
-3. Restart Home Assistant.
-4. Go to **Settings → Devices & services → Add integration**.
-5. Select **UniFi Etherlighting**.
+On older Home Assistant versions, add this repository to HACS as an
+Integration custom repository, then follow steps 3–6 above.
 
 Use a dedicated local UniFi account with access to the Network application and
 the selected Site. Setup performs login and read-only validation; it never
