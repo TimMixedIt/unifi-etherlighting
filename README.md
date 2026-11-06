@@ -112,7 +112,7 @@ repository and uses it to check for new versions every 48 hours.
 3. Under **GitHub link**, enter `TimMixedIt/unifi-etherlighting` and select
    **Add**. If asked, choose **Integration** under **Type**.
 4. Open the repository in the list and install the latest release.
-5. Restart Home Assistant if a repair asks for it.
+5. Restart Home Assistant.
 6. Go to **Settings → Devices & services → Add integration**.
 7. Select **UniFi Etherlighting**.
 
