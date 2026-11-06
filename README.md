@@ -96,28 +96,34 @@ affected Device or Site.
 
 ### Home Assistant Marketplace (Home Assistant 2026.11 and newer)
 
+[![Open your Home Assistant instance and open this repository in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=TimMixedIt&repository=unifi-etherlighting&category=integration)
+
 Since Home Assistant 2026.11, HACS is built into Home Assistant as the
-**Home Assistant Marketplace**. A separate HACS installation is no longer
-needed or supported. Existing HACS installs, including this repository as a
-custom repository, are migrated automatically on first startup.
+[Marketplace](https://www.home-assistant.io/integrations/marketplace/). A
+separate HACS installation is no longer needed. Existing HACS installations,
+including this custom repository, are migrated automatically on first start.
 
-1. Open the Marketplace in Home Assistant.
-2. Add `https://github.com/TimMixedIt/unifi-etherlighting` as a custom
-   repository of type **Integration**.
-3. Install the latest release.
-4. Restart Home Assistant.
-5. Go to **Settings → Devices & services → Add integration**.
-6. Select **UniFi Etherlighting**.
+This integration is added as a custom repository. Custom repositories require
+a connected GitHub account; the Marketplace asks for it when you add the
+repository and uses it to check for new versions every 48 hours.
 
-Background update checks for custom repositories require a GitHub account
-connected to the Marketplace.
+1. Go to **Settings → Marketplace**.
+2. In the upper-right corner, select **Add from link**.
+3. Under **GitHub link**, enter `TimMixedIt/unifi-etherlighting` and select
+   **Add**. If asked, choose **Integration** under **Type**.
+4. Open the repository in the list and install the latest release.
+5. Restart Home Assistant if a repair asks for it.
+6. Go to **Settings → Devices & services → Add integration**.
+7. Select **UniFi Etherlighting**.
 
 ### HACS (Home Assistant before 2026.11)
 
 [![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=TimMixedIt&repository=unifi-etherlighting&category=integration)
 
-On older Home Assistant versions, add this repository to HACS as an
-Integration custom repository, then follow steps 3–6 above.
+1. Add this repository to HACS as an Integration custom repository.
+2. Install the latest release and restart Home Assistant.
+3. Go to **Settings → Devices & services → Add integration**.
+4. Select **UniFi Etherlighting**.
 
 Use a dedicated local UniFi account with access to the Network application and
 the selected Site. Setup performs login and read-only validation; it never
